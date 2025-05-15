@@ -72,6 +72,7 @@ class Product(BaseModel):
         choices=ProductStatus.choices,  # gan gia tri trong enum cho status
         default=ProductStatus.AVAILABLE  # gia tri mac dinh khi them san pham
     )
+    created_by = models.CharField(max_length=10, null=True, blank=True)
     category = models.ForeignKey(Category,on_delete=models.PROTECT, related_name='products')
     shop = models.ForeignKey('Shop', on_delete=models.CASCADE, related_name='products')
     def __str__(self):

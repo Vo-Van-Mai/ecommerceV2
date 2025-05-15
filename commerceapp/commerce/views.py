@@ -57,7 +57,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
             return Response(ProductSerializer(product, many=True).data, status.HTTP_200_OK )
 
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.prefetch_related('shopproduct_set').filter(active=True)
+    queryset = Product.objects.filter(active=True)
     serializer_class = serializers.ProductSerializer
     pagination_class = paginator.ItemPaginator
 
@@ -80,13 +80,13 @@ class ProductViewSet(viewsets.ModelViewSet):
         if cate_id:
             query = query.filter(category__id = cate_id)
 
-        # Lọc theo khoảng giá từ bảng trung gian ShopProduct
+        #Lọc sản phẩm theo giá
         min_price = self.request.query_params.get('min_price')
         max_price = self.request.query_params.get('max_price')
         if min_price:
-            query = query.filter(shopproduct__price__gte=min_price)
+            query = query.filter(price__gte=min_price)
         if max_price:
-            query = query.filter(shopproduct__price__lte=max_price)
+            query = query.filter(price__lte=max_price)
 
         #Lọc theo shop
         shop = self.request.query_params.get('shop')
@@ -96,14 +96,19 @@ class ProductViewSet(viewsets.ModelViewSet):
         #sắp xếp theo giá
         ordering = self.request.query_params.get('ordering')
         if ordering == 'price':
-            query = query.order_by('shopproduct__price')
+            query = query.order_by('price')
         elif ordering == '-price':
-            query = query.order_by('-shopproduct__price')
+            query = query.order_by('-price')
 
         return query
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        user = self.request.user
+        # Kiểm tra user có shop không (là seller, có shop)
+        if not hasattr(user, 'shop'):
+            raise PermissionDenied("Bạn không có quyền tạo sản phẩm vì không có cửa hàng.")
+        # Gán shop là shop của user
+        serializer.save(created_by=user, shop=user.shop)
 
 
     @action(methods=['get', 'post'], url_path="comment", detail=True)

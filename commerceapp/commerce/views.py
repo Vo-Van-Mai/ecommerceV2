@@ -62,7 +62,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     pagination_class = paginator.ItemPaginator
 
     def get_permissions(self):
-        if self.action in ['get_commments', 'get_rating'] and self.request.method.__eq__('POST'):
+        if self.action in ['get_comments', 'get_rating'] and self.request.method.__eq__('POST'):
             return [permissions.IsAuthenticated()]
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [permission.IsSeller()]

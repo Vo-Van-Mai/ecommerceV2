@@ -26,7 +26,7 @@ class ProductSerializer(ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'image', 'description', 'price', 'quantity', 'status', 'shop', 'category']
+        fields = ['id', 'name', 'image', 'description', 'price', 'quantity', 'product_status', 'shop', 'category']
         extra_kwargs = {
             'shop': {'read_only': True}
         }
@@ -86,7 +86,7 @@ class ShopSerializer(ModelSerializer):
                 }
             }
         }
-        
+
 
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:

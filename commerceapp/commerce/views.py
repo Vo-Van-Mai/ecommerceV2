@@ -25,8 +25,8 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.serializers import ValidationError
 from unicodedata import category
 
-from .models import Category, Product, Comment, User, Shop, ShopProduct, Payment, Like
-from .serializers import CategorySerializer, ProductSerializer, CommentSerializer, UserSerializer, ShopSerializer, ShopProductSerializer, PaymentSerializer, PaymentInitSerializer, PaymentVerifySerializer, LikeSerializer
+from .models import Category, Product, Comment, User, Shop,Payment, Like
+from .serializers import CategorySerializer, ProductSerializer, CommentSerializer, UserSerializer, ShopSerializer, PaymentSerializer, PaymentInitSerializer, PaymentVerifySerializer, LikeSerializer
 from .services import PaymentFactory
 from . import serializers, paginator
 from . import permission
@@ -270,30 +270,6 @@ class ShopViewSet(viewsets.ModelViewSet):
         if self.request.user != instance.user and not self.request.user.is_superuser:
             raise PermissionDenied("Bạn không có quyền xóa shop này!")
         instance.delete()
-
-
-class ShopProductViewSet(viewsets.ModelViewSet):
-    queryset = ShopProduct.objects.filter(active=True)
-    serializer_class = ShopProductSerializer
-    permission_classes = [permission.IsSeller]
-
-    def get_queryset(self):
-
-        #Chỉ trả về ShopProduct thuộc về shop của người bán hiện tại.
-        user = self.request.user
-        shop = getattr(user, 'shop', None)
-        if not shop:
-            return ShopProduct.objects.none()
-        return ShopProduct.objects.filter(shop=shop, active=True)
-
-    def perform_create(self, serializer):
-        #Gán shop tự động từ user và gọi serializer.save().
-        user = self.request.user
-        shop = getattr(user, 'shop', None)
-
-        if not shop:
-            raise ValidationError("Người dùng chưa có shop để tạo sản phẩm.")
-        serializer.save(shop=shop)
 
 
 class PaymentViewSet(viewsets.ModelViewSet):

@@ -2,23 +2,39 @@ from itertools import product
 
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
-from .models import Category, Product, Comment, User, Shop, ShopProduct, Like, Cart, CartItem, Payment
+from .models import Category, Product, Comment, User, Shop, Like, Cart, CartItem, Payment
 
 class CategorySerializer(ModelSerializer):
     class Meta:
         model = Category
         fields = ['id', 'name', 'description', 'created_date']
 
-
 class ProductSerializer(ModelSerializer):
-    #ghi de lai de can thiep du lieu dau ra
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['image'] = instance.image.url if instance.image else ''
+        data['shop'] = {
+            'id': instance.shop.id,
+            'name': instance.shop.name,
+            'avatar': instance.shop.avatar.url if instance.shop.avatar else None
+        }
+        data['category'] = {
+            'id': instance.category.id,
+            'name': instance.category.name
+        }
         return data
+
     class Meta:
         model = Product
-        fields = ['id', 'name', 'image' , 'category']
+        fields = ['id', 'name', 'image', 'description', 'price', 'quantity', 'status', 'shop', 'category']
+        extra_kwargs = {
+            'shop': {'read_only': True}
+        }
+
+    def validate_price(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Giá sản phẩm phải >= 0.")
+        return value
 
 
 class CommentSerializer(ModelSerializer):
@@ -70,31 +86,6 @@ class ShopSerializer(ModelSerializer):
                 }
             }
         }
-
-
-
-class ShopProductSerializer(ModelSerializer):
-    product = ProductSerializer()
-    class Meta:
-        model = ShopProduct
-        fields = ['id', 'shop', 'product', 'price', 'quantity', 'status']
-        extra_kwargs = {
-            'shop': {'read_only': True}
-        }
-
-    def validate(self, data):
-        if data['price'] < 0:
-            raise serializers.ValidationError('Giá sản phẩm phải lớn hơn 0!')
-        return data
-
-
-    def create(self, validated_data):
-        request = self.context.get('request')
-        user = request.user if request else None
-        product_data = validated_data.pop('product')
-        product = Product.objects.create(created_by=user,**product_data)
-        shopproduct = ShopProduct.objects.create(product=product, **validated_data)
-        return shopproduct
 
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:

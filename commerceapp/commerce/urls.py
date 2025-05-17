@@ -11,10 +11,9 @@ r.register('shops', views.ShopViewSet, basename='shops')
 r.register('comments', views.CommentViewSet, basename='comments')
 r.register('likes', views.likeViewSet, basename='likes')
 r.register('payments', views.PaymentViewSet)
+r.register('cart', views.CartViewSet, basename='cart')
+r.register('cartitems', views.CartItemViewSet, basename='cartitems')
 
-urlpatterns = [
-    path('', include(r.urls))
-]
 
 # URL patterns for payment API
 urlpatterns = [

@@ -114,8 +114,31 @@ class LikeSerializer(ModelSerializer):
         fields = ['id', 'star']
 
 
+
+
+
+class CartItemSerializer(ModelSerializer):
+
+    def to_representation(self, cart_item ):
+        rep = super().to_representation(cart_item)
+        rep['product'] = {
+            'mã sản phẩm': cart_item.product.id,
+            'tên sản phẩm': cart_item.product.name,
+            'Ảnh sản phẩm' : cart_item.product.image.url if cart_item.product.image else None
+        }
+        return rep
+    class Meta:
+        model = CartItem
+        fields = '__all__'
+        extra_kwargs = {
+            'cart': {
+                'read_only': True
+            }
+        }
+
 class CartSerializer(ModelSerializer):
+    cart_item = CartItemSerializer(many=True, read_only=True, source='cartitem_set')
     class Meta:
         model = Cart
         fields = '__all__'
-
+        read_only_fields = ['id', 'user']

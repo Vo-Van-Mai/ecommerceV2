@@ -1,36 +1,23 @@
-import base64
-from abc import ABC, abstractmethod
-import hashlib
-import json
-import uuid
-import stripe
-from datetime import time
+
 
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
-from gc import get_objects
-from http.client import responses
-from pickle import FALSE
-from urllib.request import Request
 # from tarfile import TruncatedHeaderError
-from xmlrpc.client import ResponseError
 
 from django.http import HttpResponse
+from paypal.standard.ipn.signals import valid_ipn_received
 from rest_framework import viewsets, permissions, generics, status, parsers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 
-from rest_framework.serializers import ValidationError
-from unicodedata import category
-
-from .models import Category, Product, Comment, User, Shop,Payment, Like
-from .serializers import CategorySerializer, ProductSerializer, CommentSerializer, UserSerializer, ShopSerializer, PaymentSerializer, PaymentInitSerializer, PaymentVerifySerializer, LikeSerializer
+from .models import Category, Product, Comment, User, Shop,Payment, Like, Cart, CartItem
+from .serializers import (CategorySerializer, ProductSerializer, CommentSerializer, UserSerializer,
+                          ShopSerializer, PaymentSerializer, PaymentInitSerializer, PaymentVerifySerializer,
+                          LikeSerializer, CartSerializer, CartItemSerializer)
 from .services import PaymentFactory
 from . import serializers, paginator
 from . import permission
-from django.conf import settings
 
 
 def index(request):
@@ -176,6 +163,10 @@ class UserViewSet(viewsets.ViewSet):
             user.role = role_name
             user.is_staff= is_staff
             user.save()
+
+            #Tao gio hang cho nguoi mua
+            if role_name.__eq__('buyer'):
+                Cart.objects.create(user=user)
             return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -290,6 +281,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
 
+        if not user or user.is_anonymous:
+            return Payment.objects.none()
         # If staff, return all payments
         if user.is_staff:
             return Payment.objects.all()
@@ -392,5 +385,36 @@ class likeViewSet(viewsets.ViewSet, generics.DestroyAPIView, generics.UpdateAPIV
     queryset = Like.objects.filter(active=True)
     serializer_class = LikeSerializer
     permission_classes = [permission.IsRatingOwner]
+
+
+class CartViewSet(viewsets.ViewSet, generics.ListAPIView):
+    queryset = Cart.objects.filter(active=True)
+    serializer_class = CartSerializer
+    permission_classes = [permission.IsBuyer]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_anonymous:
+            return Cart.object.none()
+        return Cart.objects.prefetch_related('cartitem_set__product').filter(user=user, active = True)
+
+
+class CartItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveUpdateDestroyAPIView):
+    queryset = CartItem.objects.filter(active=True)
+    serializer_class = CartItemSerializer
+    permission_classes = [permission.IsBuyer]
+
+    def get_queryset(self):
+        # Nếu chưa đăng nhập trả về rỗng
+        if self.request.user.is_anonymous:
+            return CartItem.objects.none()
+        # Chỉ lấy cartitem của cart thuộc user hiện tại
+        return CartItem.objects.filter(cart__user=self.request.user, active=True)
+
+
+
+
+
+
 
 

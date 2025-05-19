@@ -161,7 +161,7 @@ class CartItemSerializer(ModelSerializer):
         }
 
 class CartSerializer(ModelSerializer):
-    # cart_item = CartItemSerializer()
+    cart_item = CartItemSerializer()
     class Meta:
         model = Cart
         fields = '__all__'

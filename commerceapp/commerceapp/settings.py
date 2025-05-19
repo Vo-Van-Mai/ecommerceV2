@@ -28,7 +28,7 @@ SECRET_KEY = 'django-insecure-)#)mq_sow$^9^-*yaz_f30*!_#g#ns^8ho!79-v#_2j1xr8j0b
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['192.168.122.239']
+ALLOWED_HOSTS = ['*']
 
 
 
@@ -57,10 +57,7 @@ INSTALLED_APPS = [
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': ( 'oauth2_provider.contrib.rest_framework.OAuth2Authentication',)
 }
-OAUTH2_PROVIDER = {
-    'ALLOWED_GRANT_TYPES': ['password', 'client_credentials', 'authorization_code'],
-    'OAUTH2_BACKEND_CLASS': 'oauth2_provider.oauth2_backends.JSONOAuthLibCore',
-    'DEFAULT_SCOPES': ['read', 'write'],}
+OAUTH2_PROVIDER = { 'OAUTH2_BACKEND_CLASS': 'oauth2_provider.oauth2_backends.JSONOAuthLibCore' }
 
 CLIENT_ID = 'otU6JHb3hEnlF9JaRxOsLBOGApEiZ5SYhK22rE9x'
 CLIENT_SECRET = 'vt9Zk6J754JBxgHZFg0BdmrSPhEbcJAhMHaHO7KDojvMdmwgUYOisX5Tt7GKwItbtgbYd28onjwfBkAFSoGdgfJqEhJ4FT2yR3e37bBMNdMzBhKC9AZBy4tWvlLcKWfn'

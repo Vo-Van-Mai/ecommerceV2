@@ -21,6 +21,12 @@ class ImageProductSerializer(serializers.ModelSerializer):
 class ProductSerializer(ModelSerializer):
     images = ImageProductSerializer(many=True, read_only=True)
 
+    class Meta:
+        model = Product
+        fields = ['id', 'name', 'description', 'price', 'quantity', 'product_status', 'shop', 'category', 'images']
+        extra_kwargs = {
+            'shop': {'read_only': True}
+        }
     def create(self, validated_data):
         request = self.context.get('request')  # lấy request từ context
         product = Product.objects.create(**validated_data)
@@ -48,12 +54,6 @@ class ProductSerializer(ModelSerializer):
         }
         return data
 
-    class Meta:
-        model = Product
-        fields = ['id', 'name', 'description', 'price', 'quantity', 'product_status', 'shop', 'category', 'images']
-        extra_kwargs = {
-            'shop': {'read_only': True}
-        }
 
     def validate_price(self, value):
         if value < 0:
@@ -145,10 +145,11 @@ class CartItemSerializer(ModelSerializer):
 
     def to_representation(self, cart_item ):
         rep = super().to_representation(cart_item)
+        first_image = cart_item.product.imageproduct.first()
         rep['product'] = {
             'mã sản phẩm': cart_item.product.id,
             'tên sản phẩm': cart_item.product.name,
-            'Ảnh sản phẩm' : cart_item.product.image.url if cart_item.product.image else None
+            'Ảnh sản phẩm' : first_image.pathImg.url if first_image and first_image.pathImg else None
         }
         return rep
     class Meta:
@@ -161,7 +162,7 @@ class CartItemSerializer(ModelSerializer):
         }
 
 class CartSerializer(ModelSerializer):
-    cart_item = CartItemSerializer()
+    items = CartItemSerializer(many=True, read_only=True)
     class Meta:
         model = Cart
         fields = '__all__'

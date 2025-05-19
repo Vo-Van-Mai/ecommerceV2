@@ -1,5 +1,5 @@
 import { FlatList, Image, ScrollView, Text, View } from "react-native";
-import Apis, { endpoinds } from "../../configs/Apis";
+import Apis, { endpoints  } from "../../configs/Apis";
 import { useEffect, useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import MyStyles from "../../style/MyStyles";
@@ -16,7 +16,7 @@ const Product = ({ route }) => {
     const loadProduct = async () => {
         try {
             setLoading(true);
-            let res = await Apis.get(endpoinds['product_detail'](productId));
+            let res = await Apis.get(endpoints ['product_detail'](productId));
             console.info(res);
             setProducts(res.data);
         } catch (error) {

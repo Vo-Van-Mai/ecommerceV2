@@ -4,7 +4,7 @@ export default StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#ffffff',
+    // backgroundColor: '#ffffff',
   },
   brandName: {
     fontSize: 24,
@@ -16,7 +16,10 @@ export default StyleSheet.create({
   searchBar: {
     borderRadius: 12,
     marginBottom: 16,
-    
+    backgroundColor: 'rgb(188, 220, 255)',
+    opacity: 0.5,
+    borderColor: '#000000',
+    borderWidth: 1
   },
   categories: {
     flexDirection: 'row',
@@ -29,22 +32,23 @@ export default StyleSheet.create({
     elevation: 2,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: '#CBE5AE',
     borderRadius: 16,
     padding: 10,
     marginBottom: 16,
-    width: '48%',
+    width: '90%',
+    height: 150 ,
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
   image: {
-    width: 100,
-    height: 100,
-    resizeMode: 'contain',
+    width: 90,
+    height: 110,
+    resizeMode: 'center',
     borderRadius: 12,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#ffffff'
   },
   productName: {
     fontSize: 14,

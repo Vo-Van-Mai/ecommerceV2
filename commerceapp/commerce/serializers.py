@@ -1,18 +1,42 @@
 from itertools import product
-
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
-from .models import Category, Product, Comment, User, Shop, Like, Cart, CartItem, Payment
+from .models import Category, Product, Comment, User, Shop, Like, Cart, CartItem, Payment, ImageProduct
 
 class CategorySerializer(ModelSerializer):
     class Meta:
         model = Category
         fields = ['id', 'name', 'description', 'created_date']
 
-class ProductSerializer(ModelSerializer):
+
+class ImageProductSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data['image'] = instance.image.url if instance.image else ''
+        data['pathImg'] = instance.pathImg.url if instance.pathImg else None
+        return data
+    class Meta:
+        model = ImageProduct
+        fields = ['id', 'pathImg']
+
+class ProductSerializer(ModelSerializer):
+    images = ImageProductSerializer(many=True, read_only=True)
+
+    def create(self, validated_data):
+        request = self.context.get('request')  # lấy request từ context
+        product = Product.objects.create(**validated_data)
+
+        if request and request.FILES:
+            # Lấy danh sách file ảnh
+            files = request.FILES.getlist('images')
+            for file in files:
+                ImageProduct.objects.create(product=product, pathImg=file)
+
+        return product
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # data['image'] = instance.image.url if instance.image else ''
+        data['images'] = ImageProductSerializer(instance.imageproduct.all(), many=True).data
         data['shop'] = {
             'id': instance.shop.id,
             'name': instance.shop.name,
@@ -26,7 +50,7 @@ class ProductSerializer(ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'image', 'description', 'price', 'quantity', 'product_status', 'shop', 'category']
+        fields = ['id', 'name', 'description', 'price', 'quantity', 'product_status', 'shop', 'category', 'images']
         extra_kwargs = {
             'shop': {'read_only': True}
         }
@@ -137,7 +161,7 @@ class CartItemSerializer(ModelSerializer):
         }
 
 class CartSerializer(ModelSerializer):
-    cart_item = CartItemSerializer(many=True, read_only=True, source='cartitem_set')
+    # cart_item = CartItemSerializer()
     class Meta:
         model = Cart
         fields = '__all__'

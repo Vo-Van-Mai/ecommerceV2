@@ -23,7 +23,8 @@
     "react-native-paper": "^5.14.4",
     "react-native-render-html": "^6.3.4",
     "react-native-safe-area-context": "^5.4.0",
-    "react-native-screens": "^4.10.0"
+    "react-native-screens": "^4.10.0",
+    "expo-linear-gradient": "~14.1.4"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

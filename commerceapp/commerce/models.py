@@ -59,7 +59,6 @@ class Category(BaseModel):
 class Product(BaseModel):
     name = models.CharField(max_length=100, verbose_name="Tên sản phẩm")
     description = RichTextField()
-    image = CloudinaryField('image', blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=0, verbose_name="Giá")
     quantity = models.IntegerField(default=0)
     product_status = models.BooleanField(default=True)
@@ -76,6 +75,13 @@ class Product(BaseModel):
 
     def __str__(self):
         return self.name
+
+class ImageProduct(BaseModel):
+    pathImg = CloudinaryField('image', blank=True, null=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE,related_name='imageproduct')
+    def __str__(self):
+        return self.pathImg
+
 
 
 class Shop(BaseModel):
@@ -192,7 +198,7 @@ class Cart(BaseModel):
         return f"Cart of {self.user.username}"
 
 class CartItem(BaseModel):
-    cart = models.ForeignKey(Cart, on_delete=models.CASCADE)
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
 

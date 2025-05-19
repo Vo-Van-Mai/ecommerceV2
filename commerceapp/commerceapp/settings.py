@@ -31,6 +31,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['192.168.100.229']
 
 
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -95,6 +96,14 @@ TEMPLATES = [
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
 
 WSGI_APPLICATION = 'commerceapp.wsgi.application'
 

@@ -7,6 +7,7 @@ from django.http import HttpResponse
 from paypal.standard.ipn.signals import valid_ipn_received
 from rest_framework import viewsets, permissions, generics, status, parsers
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
@@ -46,6 +47,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.filter(active=True)
     serializer_class = serializers.ProductSerializer
+    parser_classes = [MultiPartParser, FormParser]
     pagination_class = paginator.ItemPaginator
 
     def get_permissions(self):
@@ -153,7 +155,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 class UserViewSet(viewsets.ViewSet):
     queryset = User.objects.filter(is_active=True)
     serializer_class = UserSerializer
-    parser_classes = [parsers.MultiPartParser]
+    parser_classes = [MultiPartParser, FormParser]
 
 
     def register_user(self, request, role_name, is_staff=False):

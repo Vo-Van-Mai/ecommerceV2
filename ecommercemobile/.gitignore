@@ -35,3 +35,29 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# Python
+*.pyc
+__pycache__/
+*.sqlite3
+.env
+
+# React Native
+node_modules/
+.expo/
+dist/
+build/
+*.log
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# System
+.DS_Store
+Thumbs.db
+
+# Others
+*.zip

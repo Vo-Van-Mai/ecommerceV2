@@ -23,7 +23,7 @@ const TabNavigator = () => {
   return(
     <Tab.Navigator screenOptions={{headerShown: true}}>
       <Tab.Screen name="Trang chủ" component={StackNavigator} options={{tabBarIcon: () => <Icon size={35} source={"home"}/>}} />
-      <Tab.Screen name="Tôi" component={Login} options={{tabBarIcon: () => <Icon size={35} source={"account"}/>}} />
+      <Tab.Screen name="login" component={Login} options={{tabBarIcon: () => <Icon size={35} source={"account"}/>}} />
       <Tab.Screen name="Đăng kí" component={Register} options={{tabBarIcon: () => <Icon size={35} source={"account-plus"}/>}}/>
     </Tab.Navigator>
   );

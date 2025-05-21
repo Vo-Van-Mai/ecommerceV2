@@ -1,4 +1,4 @@
-
+from venv import create
 
 from django.shortcuts import get_object_or_404
 # from tarfile import TruncatedHeaderError
@@ -389,16 +389,13 @@ class likeViewSet(viewsets.ViewSet, generics.DestroyAPIView, generics.UpdateAPIV
     permission_classes = [permission.IsRatingOwner]
 
 
-class CartViewSet(viewsets.ViewSet, generics.ListAPIView):
-    queryset = Cart.objects.filter(active=True)
-    serializer_class = CartSerializer
-    permission_classes = [permission.IsBuyer]
+class CartViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        user = self.request.user
-        if user.is_anonymous:
-            return Cart.object.none()
-        return Cart.objects.prefetch_related('cartitem_set__product').filter(user=user, active = True)
+    def list(self, request):
+        cart, created = Cart.objects.get_or_create(user=request.user)
+        serializer = CartSerializer(cart)
+        return Response(serializer.data)
 
 
 class CartItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveUpdateDestroyAPIView):
@@ -412,6 +409,43 @@ class CartItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveU
             return CartItem.objects.none()
         # Chỉ lấy cartitem của cart thuộc user hiện tại
         return CartItem.objects.filter(cart__user=self.request.user, active=True)
+
+    @action(methods=['post'], detail=True, url_path='add-to-cart', permission_classes=[IsAuthenticated])
+    def add_to_cart(self, request, pk):
+        user = request.user
+        cart, _ = Cart.objects.get_or_create(user=user)
+        quantity = request.data.get('quantity', 1)
+
+        try:
+            quantity = int(quantity)
+            if quantity < 1:
+                return Response({'error': 'Số lượng phải >= 1'}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, TypeError):
+            return Response({'error': 'Số lượng không hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Kiểm tra sản phẩm
+        try:
+            product = Product.objects.get(pk=pk)
+        except Product.DoesNotExist:
+            return Response({'error': 'Sản phẩm không tồn tại'}, status=status.HTTP_404_NOT_FOUND)
+
+        if product.quantity < quantity:
+            return Response({'error': 'số lượng vượt quá hàng trong kho! '})
+
+            # Tạo hoặc cập nhật CartItem
+        cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product)
+        if created:
+            cart_item.quantity = quantity
+        else:
+            if cart_item.quantity + quantity > product.quantity:
+                return Response({'error': 'Vượt quá số lượng trong kho'}, status=status.HTTP_400_BAD_REQUEST)
+            cart_item.quantity += quantity
+        cart_item.save()
+
+        return Response({'message': 'Sản phẩm đã được thêm vào giỏ hàng!'})
+
+
+
 
 
 

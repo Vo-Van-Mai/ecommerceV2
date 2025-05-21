@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import { Button } from "react-native";
 import { Chip, ActivityIndicator, TextInput, List, Searchbar } from "react-native-paper";
 import { Colors } from "react-native/Libraries/NewAppScreen";
-import Apis, { endpoinds } from "../../configs/Apis";
+import Apis, { endpoints  } from "../../configs/Apis";
 import { useNavigation } from "@react-navigation/native";
 import Styles from "./Styles";
 import { LinearGradient } from "expo-linear-gradient";
@@ -25,7 +25,7 @@ const Home = () => {
     
 
     const loadCate = async () => {
-        let res = await Apis.get(endpoinds['categories']);
+        let res = await Apis.get(endpoints ['categories']);
         setCategoties(res.data);
     }
 
@@ -33,7 +33,7 @@ const Home = () => {
         if (page > 0){
             try{
                 setLoading(true)
-                let url = `${endpoinds['products']}?page=${page}`;
+                let url = `${endpoints ['products']}?page=${page}`;
 
                 if (q) {
                     url = `${url}&name=${q}`;

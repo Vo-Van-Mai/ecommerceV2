@@ -71,7 +71,12 @@ class CommentSerializer(ModelSerializer):
         return req
     class Meta:
         model = Comment
-        fields = ["content", "user", "parent", "created_date", "updated_date"]
+        fields = ["content", "user", "parent", "created_date", "updated_date", "product"]
+        extra_kwargs={
+            'product': {
+                'write_only': True
+            }
+        }
 
 
 class UserSerializer(ModelSerializer):
@@ -79,8 +84,12 @@ class UserSerializer(ModelSerializer):
         u = User(**validated_data)
         u.set_password(u.password)
         u.save()
-
         return u
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email đã được sử dụng.")
+        return value
 
     class Meta:
         model = User

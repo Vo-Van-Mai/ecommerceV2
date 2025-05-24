@@ -103,10 +103,14 @@ class ProductViewSet(viewsets.ModelViewSet):
     @action(methods=['get', 'post'], url_path="comment", detail=True)
     def get_comments(self, request, pk):
         if request.method.__eq__('POST'):
-            c = Comment.objects.create(content=request.data.get('content'),
-                                       product=self.get_object(),
-                                       user=request.user)
-            return Response(CommentSerializer(c).data, status=status.HTTP_201_CREATED)
+            c = UserSerializer(data={
+                "content": request.data.get('content'),
+                "product": pk,
+                "user": request.user.pk
+            })
+            c.is_valid()
+            comment = c.save()
+            return Response(CommentSerializer(comment).data, status=status.HTTP_201_CREATED)
         else:
             comments = self.get_object().comment_set.select_related('user').filter(active=True).order_by('-id')
             p = paginator.ProductPaginator()
@@ -377,6 +381,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         return Response({
             'methods': [{'value': k, 'label': v} for k, v in Payment.PAYMENT_METHOD_CHOICES]
         })
+
 class CommentViewSet(viewsets.ViewSet, generics.DestroyAPIView, generics.UpdateAPIView):
     queryset = Comment.objects.filter(active=True)
     serializer_class = CommentSerializer

@@ -74,10 +74,10 @@ const Home = () => {
         return () => clearTimeout(timer);
     }, [q, cateId, page])
 
-    // useEffect(() => {
-    //     setPage(1);
-    //     setProducts([]);
-    // }, [q, cateId])
+    useEffect(() => {
+        setPage(1);
+        setProducts([]);
+    }, [q, cateId])
 
     return (
         <LinearGradient style={[MyStyles.container, MyStyles.p]} colors={["#A8DEE0", "#F9E2AE"]} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
@@ -101,7 +101,7 @@ const Home = () => {
                 horizontal={true}
                 onEndReached={loadMore}
                 ListFooterComponent={
-                loading && <ActivityIndicator size={30} style={{ margin: 10 }} />
+                loading && <ActivityIndicator size={35} style={{ margin: 10}} />
                 }
                 data={products}
                 renderItem={({ item }) => (

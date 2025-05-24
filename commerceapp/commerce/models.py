@@ -38,6 +38,8 @@ class User(AbstractUser):
         BUYER = 'buyer', 'Người mua'
 
     role = models.CharField(choices=RoleType.choices, default=RoleType.BUYER, max_length=20)
+    class Meta:
+        unique_together = ['username', 'email']
 
 class BaseModel(models.Model):
     active = models.BooleanField(default=True)

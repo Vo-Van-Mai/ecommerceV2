@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Image, SafeAreaView, ScrollView, Text, TouchableOpacity } from "react-native";
+import { Image, SafeAreaView, ScrollView, Text, TouchableOpacity} from "react-native";
 import { View } from "react-native";
 import { Button, HelperText, RadioButton, TextInput } from "react-native-paper";
 import Styles from "./Styles";
@@ -7,8 +7,6 @@ import * as ImagePicker from 'expo-image-picker';
 import Apis, { endpoints  } from "../../configs/Apis";
 import { useNavigation } from "@react-navigation/native";
 const Register = () =>{
-
-    
 
     const [user, setUser] = useState({});
     const [msg, setMsg] = useState(null);
@@ -110,16 +108,17 @@ const Register = () =>{
 
 
     return(
-        <SafeAreaView>
-            <ScrollView style={Styles.m}>
+        <SafeAreaView style={[Styles.m, Styles.container]}>
+            <Text style={Styles.header}>Đăng kí</Text>
+            <ScrollView >
 
-                <TextInput label="Tên" value={user.first_name} onChangeText={t => setState(t, "first_name")} style={Styles.m} />
-                <TextInput label="Họ và tên đệm" value={user.last_name} onChangeText={t => setState(t, "last_name")} style={Styles.m} />
-                <TextInput label="username" value={user.username} onChangeText={t => setState(t, "username")} style={Styles.m} />
-                <TextInput label="Số điện thoại" keyboardType="phone-pad" value={user.phone} onChangeText={t => setState(t, "phone")} style={Styles.m} />
-                <TextInput label="Email" keyboardType="email-address" value={user.email} onChangeText={t => setState(t, "email")} style={Styles.m} />
-                <TextInput label="Mật khẩu" secureTextEntry value={user.password} onChangeText={t => setState(t, "password")} style={Styles.m} />
-                <TextInput label="Xác nhận mật khẩu" secureTextEntry value={user.confirmPassword} onChangeText={t => setState(t, "confirmPassword")} style={Styles.m} />
+                <TextInput label="Tên" value={user.first_name} onChangeText={t => setState(t, "first_name")} style={[Styles.m, Styles.input]} />
+                <TextInput label="Họ và tên đệm" value={user.last_name} onChangeText={t => setState(t, "last_name")} style={[Styles.m, Styles.input]} />
+                <TextInput label="username" value={user.username} onChangeText={t => setState(t, "username")} style={[Styles.m, Styles.input]} />
+                <TextInput label="Số điện thoại" keyboardType="phone-pad" value={user.phone} onChangeText={t => setState(t, "phone")} style={[Styles.m, Styles.input]} />
+                <TextInput label="Email" keyboardType="email-address" value={user.email} onChangeText={t => setState(t, "email")} style={[Styles.m, Styles.input]} />
+                <TextInput label="Mật khẩu" secureTextEntry value={user.password} onChangeText={t => setState(t, "password")} style={[Styles.m, Styles.input]} />
+                <TextInput label="Xác nhận mật khẩu" secureTextEntry value={user.confirmPassword} onChangeText={t => setState(t, "confirmPassword")} style={[Styles.m, Styles.input]} />
 
                 {/* Gender */}
                 <Text>Giới tính:</Text>

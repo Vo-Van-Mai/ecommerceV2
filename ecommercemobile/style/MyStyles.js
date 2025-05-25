@@ -30,34 +30,5 @@ export default StyleSheet.create({
     backgroundColor: '#fff',
     elevation: 2,
   },
-  card: {
-    backgroundColor: '#CBE5AE',
-    borderRadius: 16,
-    padding: 10,
-    marginBottom: 16,
-    width: '90%',
-    height: 150 ,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  image: {
-    width: 90,
-    height: 110,
-    resizeMode: 'center',
-    borderRadius: 12,
-    backgroundColor: '#ffffff'
-  },
-  productName: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 8,
-    color: '#222',
-  },
-  productPrice: {
-    fontSize: 14,
-    color: '#00a86b',
-    fontWeight: 'bold',
-  },
+   
 }); 

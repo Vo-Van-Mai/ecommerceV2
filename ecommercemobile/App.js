@@ -9,16 +9,16 @@ import { Icon } from "react-native-paper";
 import Register from "./components/User/Register";
 import { MyDispatchContext, MyUserContext } from "./configs/Context";
 import { useContext, useReducer } from "react";
-import MyUserReducer from "./Reducer/MyUserReducer";
 import Profile from "./components/User/Profile";
 import Shop from "./components/Shop/Shop";
+import MyUserReducer from "./Reducer/MyUserReducer";
 
 const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 
 const HeaderTitle = () => {
   return(
-    <View style={{flex: 1, flexDirection: "row", alignItems: "center"}}>
+    <View style={{flexDirection: "row", alignItems: "center", height: 50}}>
       <Image source={require('./assets/logo.png')} style={{width: 40, height:40, margin: 5, borderRadius: 20}} />
       <Text style={{fontSize: 15, color: "red"}}>NM-Commerce</Text>
     </View>
@@ -67,16 +67,20 @@ const TabNavigator = () => {
 }
 
 const App = () => {
-  const [user, dispatch] = useReducer(MyUserReducer, null);
+  const [user, dispatch] = useReducer(MyUserReducer, null)
 
   return (
-    <MyUserContext.Provider value={user}>
-      <MyDispatchContext.Provider value={dispatch}>
-        <NavigationContainer>
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="white" />
+      <MyUserContext.Provider value={user}>
+        <MyDispatchContext.Provider value={dispatch}>
+          <NavigationContainer>
             <TabNavigator/>
-        </NavigationContainer>
-      </MyDispatchContext.Provider>
-    </MyUserContext.Provider>
+          </NavigationContainer>
+        </MyDispatchContext.Provider>
+      </MyUserContext.Provider>
+    </>
+    
   
   );
 }

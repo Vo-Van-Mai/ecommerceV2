@@ -10,15 +10,17 @@ import Styles from "./Styles";
 
 const Product = ({ route }) => {
     const productId = route.params?.productId;
-    const [products, setProducts] = useState(null);
+    const [products, setProducts] = useState({});
     const [loading, setLoading] = useState(false);
 
     const loadProduct = async () => {
         try {
             setLoading(true);
             let res = await Apis.get(endpoints ['product_detail'](productId));
-            console.info(res);
+            console.info(res.data);
             setProducts(res.data);
+            console.info(productId)
+            console.info(res.data.images)
         } catch (error) {
             console.error(error);
         } finally {
@@ -30,54 +32,42 @@ const Product = ({ route }) => {
         loadProduct();
     }, [productId]);
 
-    if (loading || !products) return <ActivityIndicator size="large" />;
-
+    if (loading || !products.images || !products.images.length) {
+        return <ActivityIndicator size="large" />;
+    }
     return (
         <LinearGradient
-            style={[MyStyles.container, MyStyles.p]}
+            style={[Styles.container]}
             colors={["#A8DEE0", "#F9E2AE"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
         >
-            <SafeAreaView>
-                {/* Hình ảnh cuộn ngang */}
-                <View style={{borderWidth: 1, borderColor: "black"}} >
-                    {products.images?.length > 0 ? (
-                    <FlatList
-                    horizontal
-                    data={products.images}
-                    keyExtractor={(item) => item.id.toString()}
-                    showsHorizontalScrollIndicator={false}
-                    renderItem={({ item }) => (
+            <View>
+                {/* Khu vực chứa ảnh sản phẩm */}
+                <View style={{ backgroundColor: "red", flexDirection: "row", height: 300 }}>
+                    {/* Ảnh chính */}
+                    <View style={[{ flex: 7, backgroundColor:"yellow" }, Styles.p]}>
                         <Image
-                        source={{ uri: item.pathImg }}
-                        style={[Styles.image, { marginRight: 10 }]}
+                            source={{ uri: products?.images?.[0]?.pathImg || "https://via.placeholder.com/150" }}
+                            style={Styles.image}
                         />
-                    )}
-                    style={{ marginTop: 10, height: 200 }}
-                    />
-                ) : (
-                    <Image
-                    source={require("../../assets/default_product_image.jpg")}
-                    style={{ width: 100, height: 100, marginTop: 10 }}
-                    />
-                )}
-
-                </View>
-                {/* Mô tả sản phẩm */}
-                <View style={{flexDirection: "row", marginTop: 20, paddingHorizontal: 10 }}>
-                    <View style={{flex: 3, alignItems: "center"}}>
-                        <Image style={{width: 50, height: 50, borderRadius: 50}} source={{uri: products.shop.avatar}}></Image>
-                        <Text>{products.shop.name}</Text>
                     </View>
-                    <View style={{flex: 7}}>
-                        <Text style={{ fontSize: 16 }}>{products.name}</Text>
-                        <Text style={{ fontWeight: 'bold', marginTop: 5 }}>
-                        Giá: {products.price} VNĐ
-                        </Text>
+                    {/* Danh sách ảnh phụ */}
+                    <View style={{ flex: 3, backgroundColor: "blue" }}>
+                        <FlatList
+                            data={products.images}
+                            keyExtractor={item => item.id.toString()}
+                            renderItem={({ item }) => (
+                                <View style={{ backgroundColor: "blue", paddingTop: 4, paddingLeft: 4, paddingRight: 4}}>
+                                    <Image
+                                        source={{ uri: item.pathImg }} style={Styles.subImage}
+                                    />
+                                </View>
+                            )}
+                        />
                     </View>
                 </View>
-                </SafeAreaView>
+            </View>
 
         </LinearGradient>
     );

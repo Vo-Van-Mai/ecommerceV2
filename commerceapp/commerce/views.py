@@ -1,5 +1,6 @@
 from venv import create
 
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.shortcuts import get_object_or_404
 # from tarfile import TruncatedHeaderError
 
@@ -11,11 +12,12 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
-
-from .models import Category, Product, Comment, User, Shop,Payment, Like, Cart, CartItem
-from .serializers import (CategorySerializer, ProductSerializer, CommentSerializer, UserSerializer,
+from rest_framework.pagination import PageNumberPagination
+from .models import Category, Product, Comment, User, Shop,Payment, Like, Cart, CartItem, Favourite
+from .permission import IsSeller, IsOwnerShop
+from .serializers import (CategorySerializer, ProductSerializer, CommentSerializer, UserSerializer, ProductDetailSerializer,
                           ShopSerializer, PaymentSerializer, PaymentInitSerializer, PaymentVerifySerializer,
-                          LikeSerializer, CartSerializer, CartItemSerializer)
+                          LikeSerializer, CartSerializer, CartItemSerializer, CategoryDetailSerializer)
 from .services import PaymentFactory
 from . import serializers, paginator
 from . import permission
@@ -26,7 +28,13 @@ def index(request):
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.filter(active=True)
-    serializer_class = CategorySerializer
+    def get_serializer_class(self):
+        if self.action == 'get_products':
+            return CategoryDetailSerializer
+        return CategorySerializer
+
+    pagination_class = PageNumberPagination
+
 
     def get_permissions(self):
         if self.action in ["create", "update", "destroy", "update", "partial_update"]:
@@ -34,10 +42,10 @@ class CategoryViewSet(viewsets.ModelViewSet):
         return [permissions.AllowAny()]
 
     @action(methods=['get'], url_path='products', detail=True)
-    def get_products(self, request, pk):
+    def get_products(self, request, pk=None):
         product = self.get_object().products.filter(active=True)
         p = paginator.ProductPaginator()
-        page = p.paginate_queryset(product, self.request)
+        page = p.paginate_queryset(product, request)
         if page:
             s = ProductSerializer(page, many=True)
             return p.get_paginated_response(s.data)
@@ -46,12 +54,13 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.filter(active=True)
-    serializer_class = serializers.ProductSerializer
+    serializer_class = ProductDetailSerializer
     parser_classes = [MultiPartParser, FormParser]
     pagination_class = paginator.ItemPaginator
 
+
     def get_permissions(self):
-        if self.action in ['get_comments', 'get_rating'] and self.request.method.__eq__('POST'):
+        if self.action in ['get_comments', 'get_rating', 'like'] and self.request.method.__eq__('POST'):
             return [permissions.IsAuthenticated()]
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [permission.IsSeller()]
@@ -103,10 +112,14 @@ class ProductViewSet(viewsets.ModelViewSet):
     @action(methods=['get', 'post'], url_path="comment", detail=True)
     def get_comments(self, request, pk):
         if request.method.__eq__('POST'):
-            c = Comment.objects.create(content=request.data.get('content'),
-                                       product=self.get_object(),
-                                       user=request.user)
-            return Response(CommentSerializer(c).data, status=status.HTTP_201_CREATED)
+            c = CommentSerializer(data={
+                "content": request.data.get('content'),
+                "product": pk,
+                "user": request.user.pk
+            })
+            c.is_valid()
+            comment = c.save()
+            return Response(CommentSerializer(comment).data, status=status.HTTP_201_CREATED)
         else:
             comments = self.get_object().comment_set.select_related('user').filter(active=True).order_by('-id')
             p = paginator.ProductPaginator()
@@ -127,7 +140,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                 return Response({'error': 'Thiếu dữ liệu đánh giá (star)'}, status=status.HTTP_400_BAD_REQUEST)
 
             # Kiểm tra đánh giá đã tồn tại chưa
-            like, created = Like.objects.get_or_create(
+            rating, created = Like.objects.get_or_create(
                 user=request.user,
                 product=product,
                 defaults={'star': star}
@@ -135,11 +148,11 @@ class ProductViewSet(viewsets.ModelViewSet):
 
             if not created:
                 # Nếu đã tồn tại thì cập nhật số sao
-                like.star = star
-                like.save()
-                return Response(LikeSerializer(like).data, status=status.HTTP_200_OK)
+                rating.star = star
+                rating.save()
+                return Response(LikeSerializer(rating).data, status=status.HTTP_200_OK)
 
-            return Response(LikeSerializer(like).data, status=status.HTTP_201_CREATED)
+            return Response(LikeSerializer(rating).data, status=status.HTTP_201_CREATED)
 
         else:
             star = product.like_set.select_related('user').filter(active=True).order_by('-id')
@@ -151,8 +164,16 @@ class ProductViewSet(viewsets.ModelViewSet):
             else:
                 return Response(LikeSerializer(star, many=True).data, status=status.HTTP_200_OK)
 
+    @action(methods=['post'], detail=True, url_path='like')
+    def like(self, request, pk):
+        li, created = Favourite.objects.get_or_create(user=request.user, product_id = pk)
+        if not created:
+            li.active = not li.active
+        li.save()
 
-class UserViewSet(viewsets.ViewSet):
+        return Response(ProductDetailSerializer(self.get_object(), context={'request': request}).data, status=status.HTTP_200_OK)
+
+class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
     queryset = User.objects.filter(is_active=True)
     serializer_class = UserSerializer
     parser_classes = [MultiPartParser, FormParser]
@@ -246,28 +267,63 @@ class UserViewSet(viewsets.ViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
-class ShopViewSet(viewsets.ModelViewSet):
-    queryset = Shop.objects.filter(active=True)
-    serializer_class = ShopSerializer
-    def get_permissions(self):
-        if self.action in ["create", "update", "destroy", "update", "partial_update"]:
-            return [permission.IsAdminOrSeller()]
-        return [permissions.AllowAny()]
 
-    #gan user dang nhap la chu shop
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+class ShopViewSet(viewsets.ViewSet):
 
-    def perform_update(self, serializer):
-        # Kiểm tra nếu không phải admin thì phải là chủ shop mới được cập nhật
-        if self.request.user != self.get_object().user and not self.request.user.is_superuser:
-            raise PermissionDenied("Bạn không có quyền chỉnh sửa shop này!")
-        serializer.save()
+    def list(self, request):
+        shops = Shop.objects.filter(active=True)
+        serializer = ShopSerializer(shops, many=True, context={'request': request})
+        return Response(serializer.data)
 
-    def perform_destroy(self, instance):
-        if self.request.user != instance.user and not self.request.user.is_superuser:
-            raise PermissionDenied("Bạn không có quyền xóa shop này!")
-        instance.delete()
+    def create(self, request):
+        if not IsSeller().has_permission(request, self):
+            if request.user.role != "seller":
+                raise PermissionDenied("Bạn không phải người bán nên không thể tạo cửa hàng!")
+            raise PermissionDenied("Bạn chưa có quyền tạo shop!")
+        if Shop.objects.filter(user_id = request.user).exists():
+            raise PermissionDenied("Bạn đã có cửa hàng!")
+        serializer = ShopSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, pk=None):
+        try:
+            shop = Shop.objects.get(pk=pk)
+        except Shop.DoesNotExist:
+            return Response({'detail': "Cửa hàng không tồn tại!"}, status=status.HTTP_404_NOT_FOUND)
+        if not IsOwnerShop().has_object_permission(request, self, shop):
+            raise PermissionDenied("Bạn không phải là chủ sở hữu của shop này!")
+        serializer = ShopSerializer(shop, data=request.data, partial=False)  # PUT: require full data
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def partial_update(self, request, pk=None):
+        try:
+            shop = Shop.objects.get(pk=pk)
+        except Shop.DoesNotExist:
+            return Response({'detail': "Cửa hàng không tồn tại!"}, status=status.HTTP_404_NOT_FOUND)
+        if not IsOwnerShop().has_object_permission(request, self, shop):
+            raise PermissionDenied("Bạn không phải là chủ sở hữu của shop này!")
+        serializer = ShopSerializer(shop, data=request.data, partial=True)  # PATCH: partial update
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, pk=None):
+        try:
+            shop = Shop.objects.get(pk=pk)
+        except Shop.DoesNotExist:
+            return Response({'detail' : 'Cửa hàng không tồn tại!'}, status=status.HTTP_404_NOT_FOUND)
+        if not IsOwnerShop().has_object_permission(request, self, shop):
+            raise PermissionDenied("Bạn không phải chủ shop này nên không có quyền xóa!")
+        shop.delete()
+        return Response({'detail': 'xóa cửa hàng thành công!'}, status=status.HTTP_204_NO_CONTENT)
+
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
@@ -377,6 +433,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
         return Response({
             'methods': [{'value': k, 'label': v} for k, v in Payment.PAYMENT_METHOD_CHOICES]
         })
+
+
+
 class CommentViewSet(viewsets.ViewSet, generics.DestroyAPIView, generics.UpdateAPIView):
     queryset = Comment.objects.filter(active=True)
     serializer_class = CommentSerializer
@@ -397,6 +456,41 @@ class CartViewSet(viewsets.ViewSet):
         serializer = CartSerializer(cart)
         return Response(serializer.data)
 
+    @action(methods=['post'], detail=False, url_path='add-to-cart')
+    def add_to_cart(self, request):
+        user = request.user
+        cart, _ = Cart.objects.get_or_create(user=user)
+
+        product_id = request.data.get('product_id')
+        quantity = request.data.get('quantity', 1)
+
+        try:
+            quantity = int(quantity)
+            if quantity < 1:
+                return Response({'error': 'Số lượng phải >= 1'}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, TypeError):
+            return Response({'error': 'Số lượng không hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            product = Product.objects.get(pk=product_id)
+        except Product.DoesNotExist:
+            return Response({'error': 'Sản phẩm không tồn tại'}, status=status.HTTP_404_NOT_FOUND)
+
+        if product.quantity < quantity:
+            return Response({'error': 'Số lượng vượt quá hàng trong kho'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Tạo hoặc cập nhật CartItem
+        cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product)
+        if created:
+            cart_item.quantity = quantity
+        else:
+            if cart_item.quantity + quantity > product.quantity:
+                return Response({'error': 'Vượt quá số lượng trong kho'}, status=status.HTTP_400_BAD_REQUEST)
+            cart_item.quantity += quantity
+
+        cart_item.save()
+        return Response({'message': 'Sản phẩm đã được thêm vào giỏ hàng!'})
+
 
 class CartItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveUpdateDestroyAPIView):
     queryset = CartItem.objects.filter(active=True)
@@ -410,39 +504,7 @@ class CartItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveU
         # Chỉ lấy cartitem của cart thuộc user hiện tại
         return CartItem.objects.filter(cart__user=self.request.user, active=True)
 
-    @action(methods=['post'], detail=True, url_path='add-to-cart', permission_classes=[IsAuthenticated])
-    def add_to_cart(self, request, pk):
-        user = request.user
-        cart, _ = Cart.objects.get_or_create(user=user)
-        quantity = request.data.get('quantity', 1)
 
-        try:
-            quantity = int(quantity)
-            if quantity < 1:
-                return Response({'error': 'Số lượng phải >= 1'}, status=status.HTTP_400_BAD_REQUEST)
-        except (ValueError, TypeError):
-            return Response({'error': 'Số lượng không hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Kiểm tra sản phẩm
-        try:
-            product = Product.objects.get(pk=pk)
-        except Product.DoesNotExist:
-            return Response({'error': 'Sản phẩm không tồn tại'}, status=status.HTTP_404_NOT_FOUND)
-
-        if product.quantity < quantity:
-            return Response({'error': 'số lượng vượt quá hàng trong kho! '})
-
-            # Tạo hoặc cập nhật CartItem
-        cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product)
-        if created:
-            cart_item.quantity = quantity
-        else:
-            if cart_item.quantity + quantity > product.quantity:
-                return Response({'error': 'Vượt quá số lượng trong kho'}, status=status.HTTP_400_BAD_REQUEST)
-            cart_item.quantity += quantity
-        cart_item.save()
-
-        return Response({'message': 'Sản phẩm đã được thêm vào giỏ hàng!'})
 
 
 

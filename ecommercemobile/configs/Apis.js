@@ -1,13 +1,14 @@
 import axios from "axios";
 
-const BASE_URL = 'http://192.168.1.46:8000/';
+const BASE_URL = 'http://192.168.100.229:8000/';
 export const endpoints  = {
     'categories' : '/categories/',
     'products' : '/products/',
     'product_detail': (productId) => `/products/${productId}/`,
     'shops': '/shops/',
     'register': (userRole) => `/users/register-${userRole}/`,
-    'login': '/o/token/'
+    'login': '/o/token/',
+    'current_user': '/users/current-user/'
 };
 
 export const authAPI = (accessToken) => {

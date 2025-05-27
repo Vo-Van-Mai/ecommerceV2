@@ -8,6 +8,9 @@ import { useNavigation } from "@react-navigation/native";
 import Styles from "./Styles";
 import { LinearGradient } from "expo-linear-gradient";
 import MyStyles from "../../style/MyStyles";
+import { AntDesign } from "@expo/vector-icons";
+import ProdcutCard, { ProductCardV2 } from "./ProductCard";
+import ProductCard from "./ProductCard";
 
 export const Items = (props) => {
     return <Text> Hello {props.firstName} {props.lastName}! </Text>
@@ -27,6 +30,7 @@ const Home = () => {
     const loadCate = async () => {
         let res = await Apis.get(endpoints ['categories']);
         setCategoties(res.data);
+        console.log("CATEGORIES:", res.data);
     }
 
     const loadProduct = async () => {
@@ -44,8 +48,15 @@ const Home = () => {
                 }
                     
                 let res = await Apis.get(url);
-                setProducts([...products, ...res.data.results]);
-                if (res.data.next == null)
+                setProducts(prevProducts => {
+                const newProducts = res.data.results;
+                return [
+                    ...prevProducts,
+                    ...newProducts.filter(p => !prevProducts.some(prev => prev.id === p.id))
+                ];
+                });
+                console.info("Products: ", products)
+                if (res.data.next === null)
                     setPage(0);
                 console.info(url)
             }
@@ -54,6 +65,7 @@ const Home = () => {
             }
             finally{
                 setLoading(false);
+                
             }
         }
     }
@@ -74,57 +86,61 @@ const Home = () => {
         return () => clearTimeout(timer);
     }, [q, cateId, page])
 
-    // useEffect(() => {
-    //     setPage(1);
-    //     setProducts([]);
-    // }, [q, cateId])
+    useEffect(() => {
+        setPage(1);
+        setProducts([]);
+    }, [q, cateId])
 
     return (
         <LinearGradient style={[MyStyles.container, MyStyles.p]} colors={["#A8DEE0", "#F9E2AE"]} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
             <SafeAreaView >
-                <StatusBar backgroundColor="gray"/>
-                <View style={{alignItems: 'center'}}>
+                    <View style={{alignItems: 'center'}}>
                     {/* <Text style={[MyStyles.brandName]}>Welcome to TechCommerce!</Text> */}
                 </View>
-                <Searchbar placeholder="Tìm kiếm sản phẩm..." value={q} onChangeText={setQ} style={MyStyles.searchBar}/>
+                <View>
+                    <Searchbar placeholder="Tìm kiếm sản phẩm..." value={q} onChangeText={setQ} style={MyStyles.searchBar}/>
+                </View>
 
                 <View style={{flexDirection: 'row', flexWrap:"wrap"}}>
-                    <TouchableOpacity onPress={() => setCateId(null)}>
+                    <TouchableOpacity key={'all'} onPress={() => setCateId(null)}>
                         <Chip style={[{flexWrap: 'wrap', margin:5}, MyStyles.chip ]} icon="label">Tất cả</Chip>
                     </TouchableOpacity>
                     {categories.map(c => <TouchableOpacity key={c.id} onPress={() => setCateId(c.id)}>
                         <Chip style={{flexWrap: 'wrap', margin:5}} icon="label">{c.name}</Chip>
                     </TouchableOpacity>)}
                 </View>
-
                 <FlatList
-                horizontal={true}
-                onEndReached={loadMore}
-                ListFooterComponent={
-                loading && <ActivityIndicator size={30} style={{ margin: 10 }} />
-                }
+                // ListHeaderComponent={
+                //     <View>
+                //     <Text style={{ fontSize: 16, fontWeight: "bold", margin: 5 }}>
+                //         Sản phẩm bán chạy
+                //     </Text>
+                //     <FlatList
+                //         horizontal
+                //         data={products}
+                //         keyExtractor={(item) => item.id.toString()}
+                //         renderItem={({ item }) => (
+                //         <TouchableOpacity onPress={() => nav.navigate("Product", { productId: item.id })}>
+                //             <ProdcutCard item={item} />
+                //         </TouchableOpacity>
+                //         )}
+                //         ListFooterComponent={loading && <ActivityIndicator size={35} style={{ margin: 10 }} />}
+                //     />
+                //     </View>
+                // }
                 data={products}
+                keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => (
-                <TouchableOpacity
-                    onPress={() => nav.navigate("Product", { productId: item.id })}
-                >
-                    <List.Item
-                    style={MyStyles.card}
-                    title={item.name}
-                    description={item.price}
-                    left={() => (
-                        <Image
-                        style={MyStyles.image}
-                        source={
-                            item.images && item.images.length > 0 && item.images[0].pathImg
-                            ? { uri: item.images[0].pathImg }
-                            : require("../../assets/default_product_image.jpg")
-                        }
-                        />
-                    )}
-                    />
-                </TouchableOpacity>
-                )}/>
+                    <TouchableOpacity onPress={() => nav.navigate("Product", { productId: item.id })}>
+                    <ProductCard item={item} />
+                    </TouchableOpacity>
+                )}
+                numColumns={2}
+                columnWrapperStyle={{ justifyContent: 'space-between' }}
+                onEndReached={loadMore}
+                ListFooterComponent={loading && <ActivityIndicator size={35} style={{ margin: 10 }} />}
+                />
+
             </SafeAreaView>
         </LinearGradient>
     );

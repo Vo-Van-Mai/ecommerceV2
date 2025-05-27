@@ -12,11 +12,11 @@ from django.conf import settings
 
 
 class User(AbstractUser):
+    email = models.EmailField(unique=True)
     phone = models.CharField(max_length=15, unique=True)
     avatar = CloudinaryField(
         'image'
     )
-
     class GenderUser(models.TextChoices):
         MALE = "Male", "Nam"
         FEMALE = "Female", "Nữ"
@@ -38,8 +38,7 @@ class User(AbstractUser):
         BUYER = 'buyer', 'Người mua'
 
     role = models.CharField(choices=RoleType.choices, default=RoleType.BUYER, max_length=20)
-    class Meta:
-        unique_together = ['username', 'email']
+
 
 class BaseModel(models.Model):
     active = models.BooleanField(default=True)
@@ -82,7 +81,7 @@ class ImageProduct(BaseModel):
     pathImg = CloudinaryField('image', blank=True, null=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE,related_name='imageproduct')
     def __str__(self):
-        return self.pathImg
+        return str(self.pathImg)
 
 
 
@@ -112,7 +111,8 @@ class OrderDetail(BaseModel):
     def __str__(self):
         return f"{self.product.name} x{self.quantity} for Order #{self.order.id}"
 
-
+    class Meta:
+        ordering = ['-created_date']
 
 class Payment(BaseModel):
     payment_method_choices = [
@@ -130,7 +130,7 @@ class Payment(BaseModel):
         ('refunded', 'Refunded'),
     ]
 
-    order = models.ForeignKey('order', on_delete=models.CASCADE, related_name='payment')
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='payment')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     method = models.CharField(max_length=20, choices=payment_method_choices)
     status = models.CharField(max_length=20, choices=payment_status_choices, default='pending')
@@ -147,8 +147,7 @@ class Payment(BaseModel):
     def __str__(self):
         return f"{self.method} payment for order {self.order.id}"
 
-class Meta:
-    ordering = ['-created_date']
+
 
 
 class Review(BaseModel):
@@ -174,6 +173,13 @@ class Like(Review):
         ]
     def __str__(self):
         return str(self.star)
+
+class Favourite(Review):
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'product'], name='unique_user_product_favourite')
+        ]
+
 
 class Conversation(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversations')

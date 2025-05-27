@@ -1,12 +1,31 @@
 from itertools import product
+
+from django.utils.translation.trans_null import activate
 from rest_framework import serializers
-from rest_framework.serializers import ModelSerializer
+from rest_framework.serializers import ModelSerializer, SerializerMethodField
 from .models import Category, Product, Comment, User, Shop, Like, Cart, CartItem, Payment, ImageProduct
 
 class CategorySerializer(ModelSerializer):
+
     class Meta:
         model = Category
         fields = ['id', 'name', 'description', 'created_date']
+
+class CategoryDetailSerializer(CategorySerializer):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['products'] = [
+            {
+                'id': product.id,
+                'name': product.name,
+                'price': product.price
+            }
+            for product in instance.products.filter(active=True)
+        ]
+        return data
+    class Meta:
+        model = CategorySerializer.Meta.model
+        fields = CategorySerializer.Meta.fields + ['products']
 
 
 class ImageProductSerializer(serializers.ModelSerializer):
@@ -19,11 +38,11 @@ class ImageProductSerializer(serializers.ModelSerializer):
         fields = ['id', 'pathImg']
 
 class ProductSerializer(ModelSerializer):
-    images = ImageProductSerializer(many=True, read_only=True)
+    images = ImageProductSerializer(source='imageproduct',many=True, read_only=True)
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'description', 'price', 'quantity', 'product_status', 'shop', 'category', 'images']
+        fields = ['id', 'name', 'description', 'price', 'quantity', 'product_status', 'shop', 'category','images']
         extra_kwargs = {
             'shop': {'read_only': True}
         }
@@ -39,9 +58,43 @@ class ProductSerializer(ModelSerializer):
 
         return product
 
+    def update(self, instance, validated_data):
+        request = self.context.get('request')
+
+        # Cập nhật các field cơ bản
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Xử lý ảnh mới nếu có upload
+        if request and request.FILES:
+            files = request.FILES.getlist('images')
+            # Xóa ảnh cũ trước khi thêm mới
+            instance.imageproduct.all().delete()
+
+            for file in files:
+                ImageProduct.objects.create(product=instance, pathImg=file)
+
+        return instance
+
+
+class LikeSerializer(ModelSerializer):
+    class Meta:
+        model = Like
+        fields = ['id', 'star']
+
+
+class ProductDetailSerializer(ProductSerializer):
+    like = SerializerMethodField()
+
+    def get_like(self, product):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return product.favourite_set.filter(user=request.user, active=True).exists()
+
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        # data['image'] = instance.image.url if instance.image else ''
         data['images'] = ImageProductSerializer(instance.imageproduct.all(), many=True).data
         data['shop'] = {
             'id': instance.shop.id,
@@ -54,11 +107,10 @@ class ProductSerializer(ModelSerializer):
         }
         return data
 
-
-    def validate_price(self, value):
-        if value < 0:
-            raise serializers.ValidationError("Giá sản phẩm phải >= 0.")
-        return value
+    class Meta:
+        model = ProductSerializer.Meta.model
+        fields = ProductSerializer.Meta.fields + ['like']
+        extra_kwargs = ProductSerializer.Meta.extra_kwargs
 
 
 class CommentSerializer(ModelSerializer):
@@ -107,17 +159,18 @@ class UserSerializer(ModelSerializer):
 
 
 class ShopSerializer(ModelSerializer):
+    avatar = serializers.ImageField(
+        required=True,
+        error_messages={
+            'required': 'Vui lòng upload avatar (ảnh đại diện) của shop!!'
+        }
+    )
 
     class Meta:
         model = Shop
         fields = ['id', 'name', 'user', 'avatar']
         extra_kwargs={
-            'user': {'read_only': True},
-            'avatar': {
-                'error_messages': {
-                    'required': 'vui lòng upload avatar (ảnh đại diện) của shop!!'
-                }
-            }
+            'user': {'read_only': True}
         }
 
 
@@ -139,12 +192,6 @@ class PaymentVerifySerializer(serializers.Serializer):
     payment_id = serializers.IntegerField()
     transaction_id = serializers.CharField(required=False)
     payment_data = serializers.JSONField(required=False)
-
-
-class LikeSerializer(ModelSerializer):
-    class Meta:
-        model = Like
-        fields = ['id', 'star']
 
 
 

@@ -79,4 +79,9 @@ export default StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#fff',
   },
+  errorText: {
+    color: 'red',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
 });

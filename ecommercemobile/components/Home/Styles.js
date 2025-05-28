@@ -52,7 +52,7 @@ export default StyleSheet.create({
     zIndex: 1,
   },
   image: {
-    width: '100%',
+    width: '80%',
     height: 200,
     borderRadius: 8,
     marginBottom: 8,

@@ -4,6 +4,7 @@ import MyStyles from '../../style/MyStyles';
 import Styles from './Styles';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2; // padding 16 + gap 16
@@ -17,16 +18,26 @@ const ProductCard = ({item}) => {
     }
     else setLike(true);
   }
+  const formatCurrency = (value) => {
+        return new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND',
+        }).format(value);
+        };
 
   return (
+    // <LinearGradient style={styles.card}
+    // colors={["#18A5A7", "#B6C0C5"]} // 112D60 B6C0C5, 18A5A7 B6C0C5, FDABDD 374A5A
+    // start={{ x: 0, y: 0 }}
+    // end={{ x: 1, y: 1 }}>
     <View style={styles.card}>
       <Image
-                style={[Styles.image]}
-                source={
-                    item.images && item.images.length > 0 && item.images[0].pathImg
-                    ? { uri: item.images[0].pathImg }
-                    : require("../../assets/default_product_image.jpg")
-                } />
+        style={[styles.image]}
+        source={
+            item.images && item.images.length > 0 && item.images[0].pathImg
+            ? { uri: item.images[0].pathImg }
+            : require("../../assets/default_product_image.jpg")
+        } />
       
       <TouchableOpacity style={styles.heartIcon} onPress={isLike}>
         {like?(
@@ -37,7 +48,8 @@ const ProductCard = ({item}) => {
       </TouchableOpacity>
 
       <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
-      <Text style={styles.price}>${item.price}</Text>
+      <Text style={styles.price}>{formatCurrency(item.price)}</Text>
+    {/* </LinearGradient> */}
     </View>
   );
 };
@@ -45,18 +57,22 @@ const ProductCard = ({item}) => {
 const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
-    backgroundColor: '#fff',
+    backgroundColor: '#00203fff',
     borderRadius: 12,
     marginBottom: 16,
     overflow: 'hidden',
     paddingBottom: 12,
     position: 'relative',
+    alignItems: "center",
+    padding: 5
   },
   image: {
-    width: '100%',
+    width: CARD_WIDTH * 0.95,
     height: CARD_WIDTH * 1.2,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
+    resizeMode: 'cover',
+    borderRadius: 30,    
   },
   // Icon like
   heartIcon: {
@@ -73,14 +89,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 8,
     marginHorizontal: 10,
-    color: '#222',
+    color: '#ADEFD1FF',
   },
   price: {
     fontSize: 14,
     fontWeight: 'bold',
     marginTop: 4,
     marginHorizontal: 10,
-    color: '#000',
+    color: '#ffffff',
   },
 });
 

@@ -33,8 +33,6 @@ class CategoryViewSet(viewsets.ModelViewSet):
             return CategoryDetailSerializer
         return CategorySerializer
 
-    pagination_class = PageNumberPagination
-
 
     def get_permissions(self):
         if self.action in ["create", "update", "destroy", "update", "partial_update"]:
@@ -52,7 +50,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         else:
             return Response(ProductSerializer(product, many=True).data, status.HTTP_200_OK )
 
-class ProductViewSet(viewsets.ModelViewSet):
+class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView):
     queryset = Product.objects.filter(active=True)
     serializer_class = ProductDetailSerializer
     parser_classes = [MultiPartParser, FormParser]
@@ -65,6 +63,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [permission.IsSeller()]
         return [AllowAny()]
+
 
     def get_queryset(self):
         query = self.queryset
@@ -275,6 +274,16 @@ class ShopViewSet(viewsets.ViewSet):
         serializer = ShopSerializer(shops, many=True, context={'request': request})
         return Response(serializer.data)
 
+    def retrieve(self, request, pk):
+        try:
+            shop =Shop.objects.get(active=True, pk=pk)
+        except Shop.DoesNotExist:
+            return Response({"detail": "Shop không tồn tại"}, status=status.HTTP_404_NOT_FOUND)
+
+        if not IsOwnerShop().has_object_permission(request, self, shop):
+            raise PermissionDenied("bạn không phải chủ của hàng này!")
+        return Response(ShopSerializer(shop).data, status=status.HTTP_200_OK)
+
     def create(self, request):
         if not IsSeller().has_permission(request, self):
             if request.user.role != "seller":
@@ -324,6 +333,45 @@ class ShopViewSet(viewsets.ViewSet):
         shop.delete()
         return Response({'detail': 'xóa cửa hàng thành công!'}, status=status.HTTP_204_NO_CONTENT)
 
+
+    @action(methods=['post'], detail=True, url_path='add-product')
+    def add_product(self, request, pk=None):
+        try:
+            shop = Shop.objects.get(pk=pk)
+        except Shop.DoesNotExist:
+            return Response({'detail': 'Shop không tồn tại!'}, status=status.HTTP_404_NOT_FOUND)
+        if not IsOwnerShop().has_object_permission(request, self, shop):
+            raise PermissionDenied("Bạn không phải chủ shop nên không thể tạo thêm sản phẩm!")
+        product = ProductSerializer(data=request.data, context={'request': request})
+        if product.is_valid():
+            product.save(shop=shop, created_by=request.user)
+            return Response(product.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(product.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=["get"], url_path="products")
+    def products(self, request, pk=None):
+        try:
+            shop = Shop.objects.get(pk=pk)
+        except Shop.DoesNotExist:
+            return Response({'detail': 'Shop không tồn tại!'}, status=status.HTTP_404_NOT_FOUND)
+        products = shop.products.all()
+        p = paginator.ProductPaginator()
+        page = p.paginate_queryset(products, request)
+        if page:
+            serializer = ProductSerializer(page, many=True)
+            return p.get_paginated_response(serializer.data)
+        return Response(ProductSerializer(products, many=True).data, status=status.HTTP_200_OK)
+
+    # Lấy shop của ngưi đăng nhập
+    @action(detail=False, methods=['get'], url_path='my-shop')
+    def my_shop(self, request):
+        try:
+            shop = Shop.objects.get(user=request.user)
+            serializer = ShopSerializer(shop, context={'request': request})
+            return Response(serializer.data)
+        except Shop.DoesNotExist:
+            return Response({"detail": "Bạn chưa có cửa hàng nào!"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
@@ -503,16 +551,3 @@ class CartItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveU
             return CartItem.objects.none()
         # Chỉ lấy cartitem của cart thuộc user hiện tại
         return CartItem.objects.filter(cart__user=self.request.user, active=True)
-
-
-
-
-
-
-
-
-
-
-
-
-

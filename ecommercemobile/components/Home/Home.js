@@ -49,12 +49,12 @@ const Home = () => {
                     
                 let res = await Apis.get(url);
                 setProducts(prevProducts => {
-                const newProducts = res.data.results;
-                return [
-                    ...prevProducts,
-                    ...newProducts.filter(p => !prevProducts.some(prev => prev.id === p.id))
-                ];
-                });
+                    const newProducts = res.data.results;
+                    return [
+                        ...prevProducts,
+                        ...newProducts.filter(p => !prevProducts.some(prev => prev.id === p.id))
+                    ];
+                    });
                 console.info("Products: ", products)
                 if (res.data.next === null)
                     setPage(0);
@@ -101,14 +101,21 @@ const Home = () => {
                     <Searchbar placeholder="Tìm kiếm sản phẩm..." value={q} onChangeText={setQ} style={MyStyles.searchBar}/>
                 </View>
 
-                <View style={{flexDirection: 'row', flexWrap:"wrap"}}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: 5, height: 50 }}
+                    >
                     <TouchableOpacity key={'all'} onPress={() => setCateId(null)}>
-                        <Chip style={[{flexWrap: 'wrap', margin:5}, MyStyles.chip ]} icon="label">Tất cả</Chip>
+                        <Chip style={[{ marginRight: 8 }]} icon="label">Tất cả</Chip>
                     </TouchableOpacity>
-                    {categories.map(c => <TouchableOpacity key={c.id} onPress={() => setCateId(c.id)}>
-                        <Chip style={{flexWrap: 'wrap', margin:5}} icon="label">{c.name}</Chip>
-                    </TouchableOpacity>)}
-                </View>
+
+                    {categories.map(c => (
+                        <TouchableOpacity key={c.id} onPress={() => setCateId(c.id)}>
+                        <Chip style={{ marginRight: 8 }} icon="label">{c.name}</Chip>
+                        </TouchableOpacity>
+                    ))}
+                    </ScrollView>
                 <FlatList
                 // ListHeaderComponent={
                 //     <View>
@@ -139,6 +146,9 @@ const Home = () => {
                 columnWrapperStyle={{ justifyContent: 'space-between' }}
                 onEndReached={loadMore}
                 ListFooterComponent={loading && <ActivityIndicator size={35} style={{ margin: 10 }} />}
+                // contentContainerStyle={{
+                //     paddingBottom: 150, //để không bị che bởi tab bar
+                // }}
                 />
 
             </SafeAreaView>

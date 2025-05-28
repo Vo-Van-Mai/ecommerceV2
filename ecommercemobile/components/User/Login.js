@@ -20,11 +20,11 @@ const Login = () => {
   };
 
   const validate = () => {
-        if (user.username===""|| user.password==="") {
+        if (!user.username || !user.password) {
             setMsg("Vui lòng nhập đầy đủ thông tin!");
             console.log(user);
             return false;
-        }
+        };
         return true;
     };
 
@@ -33,15 +33,17 @@ const Login = () => {
         try {
           SetLoading(true);
 
-          let res = await Apis.post(endpoints['login'],{
-            ...user,
-            client_id: 'otU6JHb3hEnlF9JaRxOsLBOGApEiZ5SYhK22rE9x',
-            client_secret: 'vt9Zk6J754JBxgHZFg0BdmrSPhEbcJAhMHaHO7KDojvMdmwgUYOisX5Tt7GKwItbtgbYd28onjwfBkAFSoGdgfJqEhJ4FT2yR3e37bBMNdMzBhKC9AZBy4tWvlLcKWfn',
-            grant_type: 'password'
-          },{
+          const form = new URLSearchParams();
+          form.append("username", user.username);
+          form.append("password", user.password);
+          form.append("client_id", "otU6JHb3hEnlF9JaRxOsLBOGApEiZ5SYhK22rE9x");
+          form.append("client_secret", "vt9Zk6J754JBxgHZFg0BdmrSPhEbcJAhMHaHO7KDojvMdmwgUYOisX5Tt7GKwItbtgbYd28onjwfBkAFSoGdgfJqEhJ4FT2yR3e37bBMNdMzBhKC9AZBy4tWvlLcKWfn");
+          form.append("grant_type", "password");
+
+          let res = await Apis.post(endpoints['login'], form.toString(), {
             headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-          }
-          );
+          });
+
           console.log(res.data);
           await AsyncStorage.setItem('token', res.data.access_token);
           let u = await authAPI(res.data.access_token).get(endpoints['current_user']);
@@ -52,13 +54,22 @@ const Login = () => {
           });
           nav.navigate('Trang chủ');
 
-        if (res.status === 201)
-            // nav.navigate('home');
-          console.log("login success");
-        else
-            setMsg("Đăng ký thất bại!");
+        
         } catch (error) {
-          console.error(error);
+          // console.error(error);
+          console.log('Error data:', error.response?.data);
+          if (error.response) {
+            const status = error.response.status;
+            if (status === 400 && error.response.data?.error === "invalid_grant") {
+              setMsg("Tên đăng nhập hoặc mật khẩu không đúng!");
+            } else if (status === 401) {
+              setMsg("Không được phép! Vui lòng kiểm tra thông tin đăng nhập.");
+            } else {
+              setMsg("Đăng nhập thất bại! Vui lòng thử lại sau.");
+            }
+          } else {
+            setMsg("Lỗi kết nối! Vui lòng kiểm tra mạng.");
+          }
         } finally {
           SetLoading(false);
         }
@@ -68,7 +79,7 @@ const Login = () => {
   return (
     <SafeAreaView style={Styles.container}>
       <Text style={Styles.header}>Đăng nhập</Text>
-
+      
       {/* Email Input */}
       <TextInput
         style={Styles.input}
@@ -86,6 +97,11 @@ const Login = () => {
         secureTextEntry
       />
 
+      {/* Lỗi đăng nhập */}
+      {msg && (
+        <Text style={Styles.errorText}>{msg}</Text>
+      )}
+
       {/* Continue Button */}
       <Button
         disabled={loading} loading={loading}
@@ -94,7 +110,7 @@ const Login = () => {
         style={Styles.continueBtn}
         labelStyle={{ color: 'white' }}
       >
-        Continue
+        Đăng nhập
       </Button>
 
       {/* Forgot Password */}

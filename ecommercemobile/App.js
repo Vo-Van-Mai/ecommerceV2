@@ -12,9 +12,12 @@ import { useContext, useReducer } from "react";
 import Profile from "./components/User/Profile";
 import Shop from "./components/Shop/Shop";
 import MyUserReducer from "./Reducer/MyUserReducer";
+import ShopProduct from "./components/Shop/ShopProduct";
+import AddProduct from "./components/Shop/AddProduct";
 
 const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
+const ShopStack = createNativeStackNavigator();
 
 const HeaderTitle = () => {
   return(
@@ -43,6 +46,16 @@ const AuthStacNavigator = () => {
   );
 }
 
+const ShopStackNavigator = () => {
+  return(
+    <ShopStack.Navigator>
+      <ShopStack.Screen name="Shop" component={Shop} />
+      <ShopStack.Screen name="ShopProduct" component={ShopProduct}/>
+      <ShopStack.Screen name="AddProduct" component={AddProduct}/>
+    </ShopStack.Navigator>
+  );
+}
+
 const Tab = createBottomTabNavigator();
 
 const TabNavigator = () => {
@@ -50,15 +63,18 @@ const TabNavigator = () => {
 
   return(
     <Tab.Navigator screenOptions={{headerShown: false}}>
+
       <Tab.Screen name="Trang chủ" component={StackNavigator} options={{tabBarIcon: () => <Icon size={35} source={"home"}/>}} />
       {user === null?<>
+
       <Tab.Screen name="login" component={AuthStacNavigator} options={{tabBarIcon: () => <Icon size={35} source={"account"}/>}} />
       {/* <Tab.Screen name="Đăng kí" component={Register} options={{tabBarIcon: () => <Icon size={35} source={"account-plus"}/>}}/> */}
       </>:<>
+
       <Tab.Screen name="profile" component={Profile} options={{tabBarIcon: () => <Icon size={35} source={"account"}/>}} />
 
       {/* nếu là seller */}
-      {user.role === "seller" && <Tab.Screen name="shop" component={Shop} options={{tabBarIcon: () => <Icon size={35} source={"account"}/>}} />}
+      {user.role === "seller" && <Tab.Screen name="shop" component={ShopStackNavigator} options={{tabBarIcon: () => <Icon size={35} source={"account"}/>}} />}
         </>}
       
 

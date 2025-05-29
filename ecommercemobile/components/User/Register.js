@@ -83,13 +83,13 @@ const Register = () =>{
             console.log(pair[0] + ': ' + JSON.stringify(pair[1]));
         }
 
-        // Gán res và KHÔNG set Content-Type thủ công
         let res = await Apis.post(url, form, {
             headers: {'Content-Type': 'multipart/form-data',}
         });
 
         if (res.status === 201)
-            nav.navigate('login');
+            {console.log("Đăng ký thành công, chuyển về login");
+            nav.navigate('Login');}
         else
             setMsg("Đăng ký thất bại!");
         } catch (error) {

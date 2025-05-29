@@ -25,6 +25,7 @@ const Home = () => {
     const [cateId, setCateId] = useState();
     const [page, setPage] = useState(1);
     const nav = useNavigation();
+    const [refreshing, setRefreshing] = useState(false)
     
 
     const loadCate = async () => {
@@ -74,6 +75,20 @@ const Home = () => {
         if (!loading && page > 0)
             setPage(page + 1);
     }
+
+    const refresh = async () => {
+        setRefreshing(true);
+        setPage(1);
+        setProducts([]);
+        try {
+            await loadProduct();
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
 
     useEffect(()=>{
         loadCate();
@@ -149,6 +164,8 @@ const Home = () => {
                 // contentContainerStyle={{
                 //     paddingBottom: 150, //để không bị che bởi tab bar
                 // }}
+                refreshing={refreshing}
+                onRefresh={refresh}
                 />
 
             </SafeAreaView>

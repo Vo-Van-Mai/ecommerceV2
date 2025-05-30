@@ -143,6 +143,14 @@ class UserSerializer(ModelSerializer):
             raise serializers.ValidationError("Email đã được sử dụng.")
         return value
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        # Nếu avatar là FileField/ImageField với Cloudinary
+        data['avatar'] = instance.avatar.url if instance.avatar else None
+
+        return data
+
     class Meta:
         model = User
         fields = ['first_name', 'last_name', 'email', 'username', 'password', 'gender' ,'phone', 'avatar', 'role']

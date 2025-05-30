@@ -59,7 +59,7 @@ const Home = () => {
                 console.info("Products: ", products)
                 if (res.data.next === null)
                     setPage(0);
-                console.info(url)
+                console.info("request URL" ,url)
             }
             catch(err){
                 console.error(err);

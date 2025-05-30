@@ -48,8 +48,8 @@ const AuthStacNavigator = () => {
 
 const ShopStackNavigator = () => {
   return(
-    <ShopStack.Navigator>
-      <ShopStack.Screen name="Shop" component={Shop} />
+    <ShopStack.Navigator screenOptions={{headerShown:false}}>
+      <ShopStack.Screen name="Profile" component={Profile}/>
       <ShopStack.Screen name="ShopProduct" component={ShopProduct}/>
       <ShopStack.Screen name="AddProduct" component={AddProduct}/>
     </ShopStack.Navigator>
@@ -71,10 +71,10 @@ const TabNavigator = () => {
       {/* <Tab.Screen name="Đăng kí" component={Register} options={{tabBarIcon: () => <Icon size={35} source={"account-plus"}/>}}/> */}
       </>:<>
 
-      <Tab.Screen name="profile" component={Profile} options={{tabBarIcon: () => <Icon size={35} source={"account"}/>}} />
+      <Tab.Screen name="profile" component={ShopStackNavigator} options={{tabBarIcon: () => <Icon size={35} source={"account"}/>}} />
 
       {/* nếu là seller */}
-      {user.role === "seller" && <Tab.Screen name="shop" component={ShopStackNavigator} options={{tabBarIcon: () => <Icon size={35} source={"account"}/>}} />}
+      {/* {user.role === "seller" && <Tab.Screen name="shop" component={ShopStackNavigator} options={{tabBarIcon: () => <Icon size={35} source={"account"}/>}} />} */}
         </>}
       
 

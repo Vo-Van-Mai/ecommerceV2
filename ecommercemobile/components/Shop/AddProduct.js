@@ -86,10 +86,11 @@ const AddProduct = ({route}) => {
                     {
                         console.log("thêm thanh cong");
                         Alert.alert("Thông báo:", "Thêm sản phẩm thành công!");
+                        
+                        nav.navigate("ShopProduct", {shopId: shopId});
                     }       
                 else
                     Alert.alert("Lỗi", "Thêm sản phẩm thất bại!");
-                nav.navigate("ShopProduct", {shopId: shopId});
             }
         } catch (error) {
             console.error(error);

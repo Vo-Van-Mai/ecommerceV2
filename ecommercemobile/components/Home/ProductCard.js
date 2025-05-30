@@ -2,7 +2,7 @@ import React, { use, useState } from 'react';
 import { AntDesign } from '@expo/vector-icons'; // dùng icon trái tim
 import MyStyles from '../../style/MyStyles';
 import Styles from './Styles';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -11,6 +11,7 @@ const CARD_WIDTH = (width - 48) / 2; // padding 16 + gap 16
 
 const ProductCard = ({item}) => {
   const [like, setLike] = useState(false)
+  const [loading, setLoading] = useState(true);
 
   const isLike = () => {
     if (like) {
@@ -31,13 +32,15 @@ const ProductCard = ({item}) => {
     // start={{ x: 0, y: 0 }}
     // end={{ x: 1, y: 1 }}>
     <View style={styles.card}>
+    {loading && <ActivityIndicator style={StyleSheet.absoluteFill} size="small" color="#666" />}
       <Image
         style={[styles.image]}
         source={
             item.images && item.images.length > 0 && item.images[0].pathImg
             ? { uri: item.images[0].pathImg }
             : require("../../assets/default_product_image.jpg")
-        } />
+        } 
+        onLoadEnd={() => setLoading(false)}/>
       
       <TouchableOpacity style={styles.heartIcon} onPress={isLike}>
         {like?(

@@ -23,18 +23,6 @@ export default StyleSheet.create({
         borderColor: "darkblue",
         borderWidth: 3
     },
-    borderIcon: {
-        borderWidth: 1,
-        borderColor: "red",
-        borderRadius: 10,
-        padding: 5,
-        margin: 10
-    },
-    item:{
-        flexDirection: "row",
-        alignItems: "center",
-        // padding: 10,
-        margin: 5,
-
-    }
+    
+    
 });

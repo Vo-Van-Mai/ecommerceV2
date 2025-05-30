@@ -1,4 +1,6 @@
+import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet } from "react-native";
+
 
 export default StyleSheet.create({
     // container: {
@@ -84,4 +86,54 @@ export default StyleSheet.create({
     marginBottom: 10,
     textAlign: 'center',
   },
+
+  // ========= PROFILE =========
+  avatar: {
+    height: 150,
+    width: 150,
+    borderWidth: 2,
+    borderColor: "gold",
+    resizeMode: "cover",
+    borderRadius: 75,
+
+  },
+  username: {
+    fontSize: 24,
+    color: "darkblue",
+    fontWeight: "bold"
+  },
+  borderProfileAvater: {
+    borderWidth: 2,
+    borderColor: "darkblue",
+    borderRadius: 20,
+    margin: 5,
+    padding: 10,
+    backgroundColor: "lightgreen",
+    shadowColor: "red",
+    shadowOffset: {width: 0, height: 1},
+    shadowRadius: 3.84,
+    shadowOpacity: 0.5,
+    elevation: 10,
+    flexDirection: "row",
+  },
+  border: {
+    borderWidth: 2,
+    borderColor: "darkblue",
+    borderRadius: 20,
+    margin: 5,
+    padding: 10,
+  },
+  item:
+  {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 10,
+      margin: 5,
+  },
+  borderIcon: 
+  {
+    marginRight: 10,
+    padding: 4
+  },
+
 });

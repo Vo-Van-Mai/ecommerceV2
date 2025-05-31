@@ -50,7 +50,7 @@ const Login = () => {
           console.info(u.data);
           dispatch({
             "type": "login",
-            "payload": u.data
+            "payload": {...u.data, token: res.data.access_token}
           });
           nav.navigate('Trang chủ');
 

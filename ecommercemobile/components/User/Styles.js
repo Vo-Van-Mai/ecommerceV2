@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { StyleSheet } from "react-native";
+import { Dimensions, StyleSheet } from "react-native";
 
-
+const screenHeight = Dimensions.get("screen").height;
 export default StyleSheet.create({
     // container: {
     //     flex: 1,
@@ -135,5 +135,28 @@ export default StyleSheet.create({
     marginRight: 10,
     padding: 4
   },
+  btnLogout: {
+    position: "absolute",
+    top: screenHeight*0.77,
+    left: 0,
+    right: 0,
+    height: 45,
+  },
+
+  //editprofile
+  fontsize:{
+    fontSize: 20,
+    marginRight: 10
+  },
+  fontweight :{
+    fontWeight: "bold"
+  },
+  flexRow: {
+    flexDirection: "row"
+  },
+  textEdit: {
+    margin: 5,
+    padding: 5, 
+  }
 
 });

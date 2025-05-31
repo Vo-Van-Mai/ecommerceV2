@@ -209,11 +209,18 @@ class CartItemSerializer(ModelSerializer):
 
     def to_representation(self, cart_item ):
         rep = super().to_representation(cart_item)
-        first_image = cart_item.product.imageproduct.first()
+        product = cart_item.product
+        first_image = product.imageproduct.first()
+        shop = product.shop
         rep['product'] = {
-            'mã sản phẩm': cart_item.product.id,
-            'tên sản phẩm': cart_item.product.name,
-            'Ảnh sản phẩm' : first_image.pathImg.url if first_image and first_image.pathImg else None
+            'id': cart_item.product.id,
+            'name': cart_item.product.name,
+            'image' : first_image.pathImg.url if first_image and first_image.pathImg else None,
+            'price': cart_item.product.price
+        }
+        rep['shop']={
+            'id': shop.id,
+            'name': shop.name
         }
         return rep
     class Meta:

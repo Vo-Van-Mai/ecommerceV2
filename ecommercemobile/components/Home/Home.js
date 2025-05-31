@@ -38,7 +38,7 @@ const Home = () => {
         if (page > 0){
             try{
                 setLoading(true)
-                let url = `${endpoints ['products']}?page=${page}`;
+                const url = `${endpoints ['products']}?page=${page}`;
 
                 if (q) {
                     url = `${url}&name=${q}`;
@@ -63,6 +63,7 @@ const Home = () => {
             }
             catch(err){
                 console.error(err);
+                console.log("URL lỗi: ", url)
             }
             finally{
                 setLoading(false);
@@ -107,11 +108,8 @@ const Home = () => {
     }, [q, cateId])
 
     return (
-        <LinearGradient style={[MyStyles.container, MyStyles.p]} colors={["#A8DEE0", "#F9E2AE"]} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
+        <LinearGradient style={[MyStyles.container]} colors={["#A8DEE0", "#F9E2AE"]} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
             <SafeAreaView >
-                    <View style={{alignItems: 'center'}}>
-                    {/* <Text style={[MyStyles.brandName]}>Welcome to TechCommerce!</Text> */}
-                </View>
                 <View>
                     <Searchbar placeholder="Tìm kiếm sản phẩm..." value={q} onChangeText={setQ} style={MyStyles.searchBar}/>
                 </View>

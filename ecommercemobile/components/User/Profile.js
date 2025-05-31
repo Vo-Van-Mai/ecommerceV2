@@ -57,9 +57,9 @@ const Profile = () => {
     };
 
     return(
-        <SafeAreaView style={{marginTop: 50}}>
+        <SafeAreaView>
             <ScrollView>
-                <View style={{backgroundColor: "lightblue"}}>
+                <View style={{backgroundColor: "lightblue", height: 50, justifyContent: "center", borderTopRightRadius: 25, borderTopLeftRadius: 25}}>
                     <Text style={MyStyles.brandName}>
                         Thông tin của bạn
                     </Text>
@@ -195,10 +195,11 @@ const Profile = () => {
                     </TouchableOpacity>
 
                 </View>
-                <Button mode="contained" onPress={logout}> 
-                    Đăng xuất
-                </Button>
+                
             </ScrollView>
+            <Button style={Styles.btnLogout} mode="contained" onPress={logout}> 
+                Đăng xuất
+            </Button>
         </SafeAreaView>
         
     );

@@ -1,23 +1,23 @@
-import { StyleSheet } from "react-native";
-
+import { Dimensions, StyleSheet } from "react-native";
+const windowWidth = Dimensions.get('window').width;
+const windowHeight = Dimensions.get('window').height;
 export default StyleSheet.create({
     container:{
         flex: 1,
-        
     },
     image:{
-        width: "80%",
-        height: 300,
+        width: "70%",
+        height: 270,
         borderRadius: 20,
         resizeMode: "stretch",
         borderColor: "gray",
         borderWidth: 1,
     },
     subImage:{
-        width: 110, 
-        height: 120,
-        resizeMode: "cover",
-        borderRadius: 5,
+        width: 90, 
+        height: 100,
+        resizeMode: "stretch",
+        borderRadius: 20,
         marginRight: 5
     },
     p:{
@@ -28,18 +28,18 @@ export default StyleSheet.create({
     border:{
         borderRadius: 10,
         borderWidth: 0,
-        borderColor: "red",
+        borderColor: "#ccc",
 
     },
     productName: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: "bold",
         fontStyle: "italic",
         fontFamily: "sans-serif",
     },
     bottomBar: {
     position: "absolute",
-    bottom: 0,
+    top: windowHeight*0.79,
     left: 0,
     right: 0,
     // backgroundColor: "lightgray",

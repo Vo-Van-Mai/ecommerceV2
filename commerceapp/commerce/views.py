@@ -254,12 +254,12 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         if request.method.__eq__("PATCH"):
             u = request.user
             for key in request.data:
-                if key in ['first_name', 'last_name', 'avatar', 'phone']:
+                if key in ['email','first_name', 'last_name', 'avatar', 'phone']:
                     setattr(u, key, request.data[key])
                 elif key.__eq__('password'):
                     u.set_password(request.data[key])
             u.save()
-            return Response(UserSerializer(u).data)
+            return Response(UserSerializer(u).data, status=status.HTTP_200_OK)
         else:
             return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
 

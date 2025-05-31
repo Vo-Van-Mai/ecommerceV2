@@ -114,9 +114,11 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAP
             c = CommentSerializer(data={
                 "content": request.data.get('content'),
                 "product": pk,
-                "user": request.user.pk
+                "user": request.user.pk,
+                "parent": request.data.get("parent")
             })
-            c.is_valid()
+
+            c.is_valid(raise_exception=True)
             comment = c.save()
             return Response(CommentSerializer(comment).data, status=status.HTTP_201_CREATED)
         else:

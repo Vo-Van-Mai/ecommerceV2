@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Styles from "../Shop/Styles";
 import { Alert, Image, ScrollView, Text, TouchableOpacity } from "react-native";
 import { Button, TextInput } from "react-native-paper";
@@ -7,7 +7,8 @@ import { relativeTimeRounding } from "moment";
 import Apis, { authAPI, endpoints } from "../../configs/Apis";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
-import { useNavigation } from "@react-navigation/native";
+import { createPathConfigForStaticNavigation, useNavigation } from "@react-navigation/native";
+import { actions, RichEditor, RichToolbar } from "react-native-pell-rich-editor";
 
 const AddProduct = ({route}) => {
     const shopId = route?.params?.shopId;
@@ -17,7 +18,9 @@ const AddProduct = ({route}) => {
     const [loading, setLoading] = useState(false);
     const token = route?.params?.token;
     const [cate, setCate] = useState([]);
+    // const [description, setDescription] = useState('');
     const nav = useNavigation();
+    // const richText = useRef(null);
 
     const loadCate = async () => {
         let res = await Apis.get(endpoints['categories']);
@@ -68,6 +71,7 @@ const AddProduct = ({route}) => {
             console.log("Press");
             console.log(token);
             if (validate() === true){
+                // product.description = description;
                 const form = new FormData();
                 for (let key in product){
                     form.append(key, product[key]);
@@ -104,6 +108,10 @@ const AddProduct = ({route}) => {
         loadCate();
     }, []);
 
+    // useEffect(() => {
+    //     console.log("RichText ref:", richText.current);
+    // }, []);
+
 
     return(
         <ScrollView contentContainerStyle={{ padding: 16 }}>
@@ -123,10 +131,34 @@ const AddProduct = ({route}) => {
                 />
 
             <TextInput
-                label="Mô tả"
+                label="Mô tả sản phẩm"
                 value={product.description}
                 onChangeText={t => setState(t, "description")}
                 />
+
+
+
+            {/* <RichEditor
+                ref={richText}
+                placeholder="Nhập mô tả sản phẩm..."
+                onChange={setDescription} //tương đương với onchange = (html) => setDescription(html)
+                initialHeight={200}
+                style={{borderColor: "#ccc", borderWidth: 1, marginVertical: 10}}
+            />
+
+            <RichToolbar
+                editor={richText}
+                actions={[
+                    actions.setBold,
+                    actions.setItalic,
+                    actions.setUnderline,
+                    actions.insertBulletsList,
+                    actions.insertOrderedList,
+                    actions.insertLink,
+                ]}
+                selectedIconTint="blue"
+                iconTint="gray"
+            /> */}
 
             <TextInput
                 label="Giá sản phẩm: "

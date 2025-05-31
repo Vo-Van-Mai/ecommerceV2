@@ -123,7 +123,7 @@ class CommentSerializer(ModelSerializer):
         return req
     class Meta:
         model = Comment
-        fields = ["content", "user", "parent", "created_date", "updated_date", "product"]
+        fields = ["id","content", "user", "parent", "created_date", "updated_date", "product"]
         extra_kwargs={
             'product': {
                 'write_only': True

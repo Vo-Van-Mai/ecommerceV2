@@ -143,7 +143,7 @@ const Profile = () => {
                 <View style={[Styles.border]}>
                     <Text style={{fontWeight: "bold"}}>Danh sách dịch vụ tiện ích</Text>
 
-                    <TouchableOpacity onPress={() => nav.navigate("ShopProduct", {shopId: shop?.id}) }>
+                    <TouchableOpacity onPress={() => nav.navigate("Quản lý cửa hàng", {screen: "ShopProduct", params: {shopId: shop?.id}}) }>
                         <View style={Styles.item}>
                             <View style={Styles.borderIcon}>
                                 <Icon name="shopping-cart" size={30} color={"gray"} />
@@ -152,7 +152,7 @@ const Profile = () => {
                         </View>
                     </TouchableOpacity>
 
-                    <TouchableOpacity onPress={() => nav.navigate("AddProduct", {shopId: shop?.id, token: token})}>
+                    <TouchableOpacity onPress={() => nav.navigate("Quản lý cửa hàng", {screen: "AddProduct", params: {shopId: shop?.id, token: token}})}>
                         <View style={Styles.item}>
                             <View style={Styles.borderIcon}>
                                 <Icon name="cart-plus" size={30} color={"gray"} />

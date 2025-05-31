@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = 'http://192.168.1.69:8000/';
+const BASE_URL = 'http://192.168.100.229:8000/';
 export const endpoints  = {
     'categories' : '/categories/',
     'products' : '/products/',
@@ -16,6 +16,7 @@ export const endpoints  = {
     'cart': '/cart/',
     'addToCart': '/cart/add-to-cart/',
     'cartItem': '/cartitems/',
+    "comment": (productId) => `/products/${productId}/comment/`,
 };
 
 export const authAPI = (accessToken) => {

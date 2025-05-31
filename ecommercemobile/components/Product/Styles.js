@@ -27,9 +27,9 @@ export default StyleSheet.create({
     },
     border:{
         borderRadius: 10,
-        borderWidth: 0,
+        borderWidth: 1,
         borderColor: "#ccc",
-
+        padding: 10,
     },
     productName: {
         fontSize: 18,
@@ -39,7 +39,7 @@ export default StyleSheet.create({
     },
     bottomBar: {
     position: "absolute",
-    top: windowHeight*0.79,
+    top: windowHeight*0.79, //samsung galaxy a51
     left: 0,
     right: 0,
     // backgroundColor: "lightgray",

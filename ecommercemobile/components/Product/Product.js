@@ -6,7 +6,9 @@ import Styles from "./Styles";
 import { ActivityIndicator, Button } from "react-native-paper";
 import { TouchableOpacity } from "react-native";
 import { MyUserContext } from "../../configs/Context";
-import { height } from "@fortawesome/free-solid-svg-icons/fa0";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import Comment from "../Comment/Comment";
+import CreateComment from "../Comment/CreateComment";
 
 const Product = ({ route }) => {
     const productId = route.params?.productId;
@@ -14,7 +16,9 @@ const Product = ({ route }) => {
     const [loading, setLoading] = useState(true);
     const [urlImage, setUrlImage] = useState(null);
     const user = useContext(MyUserContext);
-   
+    const [newComment, setNewComment] = useState(false);
+    const [loadMore, setLoadMore] = useState(false);
+    const [stop, setStop] = useState(false);
 
     const loadProduct = async () => {
         try {
@@ -92,10 +96,12 @@ const Product = ({ route }) => {
             }
         }
     }
+    
 
     return (
         <View>
             <FlatList
+                onEndReached={() => setLoadMore(true)}
                 ListHeaderComponent={
                 <View>
                     <LinearGradient
@@ -161,10 +167,31 @@ const Product = ({ route }) => {
                         <Text style={{ fontWeight: "bold" }}>Mô tả sản phẩm:</Text>
                         <Text>{product.description || "Chưa có mô tả."}</Text>
                     </View>
+
+                    {/* Tạo comment */}
+                    <CreateComment productId={productId} reloadComment={() => setNewComment(pre => !pre)} />
+
+                    {/* Khu vực loadcommnt */}
+                    <View>
+                        <Comment productId={productId}  reload={newComment} loadMore={loadMore} setLoadMore={setLoadMore} setStop={setStop}  />
+                    </View>
                 </View>
                 }
                 data={[]} // Không có item, chỉ dùng để scroll
                 renderItem={null}
+                contentContainerStyle={{ paddingBottom: 80 }}
+                ListFooterComponent={() => {
+                    if (stop) return (
+                        <View style={{ padding: 10, alignItems: "center" }}>
+                            <Text>Không còn bình luận nào nữa.</Text>
+                        </View>
+                    );
+                    return (
+                        <View style={{ padding: 10 }}>
+                            <ActivityIndicator size="small" />
+                        </View>
+                    );
+                }}
             />
 
             {/* Nút đặt hàng */}

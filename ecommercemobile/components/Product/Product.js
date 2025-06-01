@@ -11,6 +11,7 @@ import Comment from "../Comment/Comment";
 import CreateComment from "../Comment/CreateComment";
 
 const Product = ({ route }) => {
+
     const productId = route.params?.productId;
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -19,12 +20,18 @@ const Product = ({ route }) => {
     const [newComment, setNewComment] = useState(false);
     const [loadMore, setLoadMore] = useState(false);
     const [stop, setStop] = useState(false);
+    const [comment, setComment] = useState([]);
+    const [ownerCmt, setOwnerCmt] = useState(false);
+    const [content, setContent] = useState("");
+    const[reply, setReply] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+
 
     const loadProduct = async () => {
         try {
             setLoading(true);
             let res = await Apis.get(endpoints['product_detail'](productId));
-            console.info(res.data);
+            console.info("res product detail: ", res.data);
             setProduct(res.data);
 
             if (res.data.images && res.data.images.length > 0) {
@@ -169,11 +176,24 @@ const Product = ({ route }) => {
                     </View>
 
                     {/* Tạo comment */}
-                    <CreateComment productId={productId} reloadComment={() => setNewComment(pre => !pre)} />
+                    <CreateComment productId={productId} 
+                    reloadComment={() => setNewComment(pre => !pre)} 
+                    content={content} setContent={setContent}
+                    showModal={showModal} setShowModal={setShowModal}
+                    comment={comment} setComment={setComment}
+                    />
 
                     {/* Khu vực loadcommnt */}
                     <View>
-                        <Comment productId={productId}  reload={newComment} loadMore={loadMore} setLoadMore={setLoadMore} setStop={setStop}  />
+                        <Comment
+                        ownerCmt={ownerCmt} setOwnerCmt={setOwnerCmt}
+                        comment={comment} setComment={setComment}
+                        productId={productId}  reload={newComment} 
+                        loadMore={loadMore} setLoadMore={setLoadMore} 
+                        setStop={setStop}
+                        reply={reply} setReply={setReply}
+                        content={content} setContent={setContent}
+                        />
                     </View>
                 </View>
                 }

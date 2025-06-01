@@ -3,16 +3,16 @@ import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-na
 import { TextInput } from "react-native-gesture-handler";
 import { authAPI, endpoints } from "../../configs/Apis";
 import { MyCartContext, MyUserContext } from "../../configs/Context";
+import CommentModal from "./CommentModal";
 
-const CreateComment = ({productId, reloadComment}) => {
+const CreateComment = ({productId, reloadComment, content, setContent, showModal, setShowModal, comment, setComment}) => {
     const user = useContext(MyUserContext);
-    const [comment, setComment] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
     const validate = () => {
-        if(comment.trim() === ""){
-            setError("Vui lòng nhập nội dung bình luận!");
+        if(content.trim() === ""){
+            setError("Vui lòng nhập nội dụng bình luận!");
             Alert.alert(error);
             return false;
         }
@@ -20,7 +20,7 @@ const CreateComment = ({productId, reloadComment}) => {
     }
     
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (content) => {
         console.log("Press");
         console.log("user: ", user);
     
@@ -36,9 +36,11 @@ const CreateComment = ({productId, reloadComment}) => {
             const url = endpoints["comment"](productId);
             console.log("url: ", url);
             const form = new FormData();
-            form.append("content", comment);
+            form.append("content", content);
             // Nếu backend không cần parent thì bạn có thể bỏ dòng sau:
-            form.append("parent", ""); // hoặc bỏ hoàn toàn nếu API không cần
+            // if(){
+            //     form.append("parent", "");
+            //  }
             console.log("form: ", form);
             const res = await authAPI(user.token).post(url, form, {
                 headers: {
@@ -46,13 +48,19 @@ const CreateComment = ({productId, reloadComment}) => {
                 },
             });
             console.log("res.status:", res.status);
+            const newComment = res?.data;
+            console.log("newComment: ", newComment);
+
+            setComment([
+                newComment,
+                ...comment
+            ]);
     
             if (res.status === 201) {
-                setComment("");
+                setContent("");
                 console.log("Bình luận đã được gửi thành công");
-                if(reloadComment){
-                    reloadComment();
-                }
+                reloadComment?.(); // Gọi reload nếu có
+                return true; 
             } else {
                 console.log("Gửi bình luận thất bại!");
             }
@@ -66,15 +74,21 @@ const CreateComment = ({productId, reloadComment}) => {
 
     return (
         <View style={{flexDirection: "row", flex: 1}}>
-            <TextInput style={{borderWidth: 1, borderColor: "gray", padding: 10, borderRadius: 10, flex: 8, margin: 5}}
+            {/* <TextInput style={{borderWidth: 1, borderColor: "gray", padding: 10, borderRadius: 10, flex: 8, margin: 5}}
                 placeholder="Nhập nội dụng bình luận của bạn..."
-                value={comment}
-                onChangeText={t => setComment(t)}
+                value={content}
+                onChangeText={t => setContent(t)}
             />
             <TouchableOpacity  onPress={handleSubmit} style={{backgroundColor: "blue", padding: 10, borderRadius: 10, flex: 2, margin: 5}}>
                 {loading ? <ActivityIndicator size="small" color="white" /> : <Text style={{color: "white"}}>Gửi</Text>}
 
+            </TouchableOpacity> */}
+            <TouchableOpacity onPress={() => setShowModal(true)} style={{backgroundColor: "blue", padding: 10, borderRadius: 10, flex: 2, margin: 5}}>
+                <Text style={{color: "white"}}>Thêm comment</Text>
+
             </TouchableOpacity>
+            <CommentModal visible={showModal} onClose={() => setShowModal(false)} onSubmit={(handleSubmit)} 
+            setContent={setContent} content={content} isUpdate={false} />
         </View>
     )
 }

@@ -124,12 +124,9 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAP
         else:
             comments = self.get_object().comment_set.select_related('user').filter(active=True).order_by('-id')
             p = paginator.ProductPaginator()
-            page = p.paginate_queryset(comments, self.request)
-            if page:
-                c = CommentSerializer(page, many=True)
-                return p.get_paginated_response(c.data)
-            else:
-                return Response(CommentSerializer(comments, many = True).data, status=status.HTTP_200_OK)
+            page = p.paginate_queryset(comments, request)
+            c = CommentSerializer(page, many=True)
+            return p.get_paginated_response(c.data)
 
     @action(methods=['get','post'], detail=True, url_path="rating")
     def get_rating(self, request, pk):

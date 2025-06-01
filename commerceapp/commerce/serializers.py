@@ -117,6 +117,7 @@ class CommentSerializer(ModelSerializer):
     def to_representation(self, comment):
         req = super().to_representation(comment)
         req['user'] = {
+            'id': comment.user.id,
             'username': comment.user.username,
             'avatar': comment.user.avatar.url if comment.user.avatar else None
         }

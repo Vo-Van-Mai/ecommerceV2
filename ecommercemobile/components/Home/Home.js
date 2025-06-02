@@ -38,7 +38,7 @@ const Home = () => {
         if (page > 0){
             try{
                 setLoading(true)
-                const url = `${endpoints ['products']}?page=${page}`;
+                let url = `${endpoints['products']}?page=${page}`;
 
                 if (q) {
                     url = `${url}&name=${q}`;

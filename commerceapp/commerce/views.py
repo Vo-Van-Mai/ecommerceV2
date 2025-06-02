@@ -13,10 +13,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
-from .models import Category, Product, Comment, User, Shop,Payment, Like, Cart, CartItem, Favourite
-from .permission import IsSeller, IsOwnerShop
+from .models import Category, Product, Comment, User, Shop,Payment, Like, Cart, CartItem, Favourite, OrderDetail, Order
+from .permission import IsSeller, IsOwnerShop, IsBuyer
 from .serializers import (CategorySerializer, ProductSerializer, CommentSerializer, UserSerializer, ProductDetailSerializer,
-                          ShopSerializer, PaymentSerializer, PaymentInitSerializer, PaymentVerifySerializer,
+                          ShopSerializer, PaymentSerializer, PaymentInitSerializer, PaymentVerifySerializer, OrderSerializer, OrderDetailSerializer,
                           LikeSerializer, CartSerializer, CartItemSerializer, CategoryDetailSerializer)
 from .services import PaymentFactory
 from . import serializers, paginator
@@ -253,7 +253,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
         if request.method.__eq__("PATCH"):
             u = request.user
             for key in request.data:
-                if key in ['email','first_name', 'last_name', 'avatar', 'phone']:
+                if key in ['email','first_name', 'last_name', 'avatar', 'phone', 'gender']:
                     setattr(u, key, request.data[key])
                 elif key.__eq__('password'):
                     u.set_password(request.data[key])
@@ -326,7 +326,7 @@ class ShopViewSet(viewsets.ViewSet):
         try:
             shop = Shop.objects.get(pk=pk)
         except Shop.DoesNotExist:
-            return Response({'detail' : 'Cửa hàng không tồn tại!'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'Lỗi' : 'Cửa hàng không tồn tại!'}, status=status.HTTP_404_NOT_FOUND)
         if not IsOwnerShop().has_object_permission(request, self, shop):
             raise PermissionDenied("Bạn không phải chủ shop này nên không có quyền xóa!")
         shop.delete()
@@ -338,7 +338,7 @@ class ShopViewSet(viewsets.ViewSet):
         try:
             shop = Shop.objects.get(pk=pk)
         except Shop.DoesNotExist:
-            return Response({'detail': 'Shop không tồn tại!'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'Lỗi': 'Shop không tồn tại!'}, status=status.HTTP_404_NOT_FOUND)
         if not IsOwnerShop().has_object_permission(request, self, shop):
             raise PermissionDenied("Bạn không phải chủ shop nên không thể tạo thêm sản phẩm!")
         product = ProductSerializer(data=request.data, context={'request': request})
@@ -370,7 +370,7 @@ class ShopViewSet(viewsets.ViewSet):
             serializer = ShopSerializer(shop, context={'request': request})
             return Response(serializer.data)
         except Shop.DoesNotExist:
-            return Response({"detail": "Bạn chưa có cửa hàng nào!"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"Lỗi": "Bạn chưa có cửa hàng nào!"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
@@ -514,9 +514,9 @@ class CartViewSet(viewsets.ViewSet):
         try:
             quantity = int(quantity)
             if quantity < 1:
-                return Response({'error': 'Số lượng phải >= 1'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'Lỗi': 'Số lượng phải >= 1'}, status=status.HTTP_400_BAD_REQUEST)
         except (ValueError, TypeError):
-            return Response({'error': 'Số lượng không hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'Lỗi': 'Số lượng không hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             product = Product.objects.get(pk=product_id)
@@ -550,3 +550,204 @@ class CartItemViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveU
             return CartItem.objects.none()
         # Chỉ lấy cartitem của cart thuộc user hiện tại
         return CartItem.objects.filter(cart__user=self.request.user, active=True)
+
+
+class OrderViewSet(viewsets.ViewSet):
+
+    # lấy danh sách order
+    def list(self, request, *args, **kwargs):
+        user = request.user
+        if not user.is_authenticated:
+            return Response({"error": "Vui lòng đăng nhập"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        orders = Order.objects.select_related('user', 'shop').filter(user=user)
+        if not orders.exists():
+            return Response({"Chi tiết": "Bạn không có đơn hàng nào!"}, status=status.HTTP_200_OK)
+        p = paginator.ItemPaginator()
+        page = p.paginate_queryset(orders, request)
+        if page:
+            return Response(OrderSerializer(page, many=True).data, status=status.HTTP_200_OK)
+        else:
+            return Response(OrderSerializer(orders, many=True).data,status= status.HTTP_200_OK)
+
+
+    def retrieve(self, request, *args, **kwargs):
+        user = request.user
+        if not user.is_authenticated:
+            return Response({"error": "Vui lòng đăng nhập"}, status=status.HTTP_401_UNAUTHORIZED)
+        try:
+            order = Order.objects.get(pk=kwargs['pk'], user=request.user)
+        except Shop.DoesNotExist:
+            return Response({"Lỗi": "Không có đơn hàng này!"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
+
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            order = Order.objects.get(user=request.user, pk=kwargs['pk'])
+        except Order.DoesNotExist:
+            return Response({"lỗi": "Không tìm thấy đơn hàng này!"}, status=status.HTTP_404_NOT_FOUND)
+
+        if not permission.IsOwnerOrder().has_object_permission(request, self, order):
+            raise PermissionDenied("Bạn không có quyền xóa đơn hàng này")
+
+        if order.status != order.OrderStatus.DELIVERED:
+            raise PermissionDenied("Bạn chỉ có thể xóa đơn hàng đã giao!")
+
+        if not permission.IsOwnerShop().has_object_permission(request, self, order.shop):
+            raise PermissionDenied("Bạn không phải là chủ cửa hàng của đơn hàng này!")
+
+        order.delete()
+        return Response({"thông báo": "Bạn đã xóa đơn hàng thành công!"}, status=status.HTTP_204_NO_CONTENT)
+
+
+    def create(self, request, *args, **kwargs):
+        user = request.user
+
+        # Kiểm tra quyền mua hàng
+        if not IsBuyer().has_permission(request, self):
+            raise PermissionDenied({"Lỗi": "Vui lòng đăng nhập hoặc đăng kí người mua để đặt hàng!"})
+
+        items = request.data.get("items")
+        if not items or not isinstance(items, list):
+            return Response({"error": "Bạn phải gửi danh sách sản phẩm"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Nhóm sản phẩm theo shop_id
+        shop_products = {}  # {shop_id: [product_info, ...]}
+        for item in items:
+            product_id = item.get("product_id")
+            quantity = item.get("quantity", 1)
+
+            try:
+                product = Product.objects.get(pk=product_id)
+            except Product.DoesNotExist:
+                return Response({"error": f"Sản phẩm với id {product_id} không tồn tại."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+            shop_id = product.shop_id
+            if shop_id not in shop_products:
+                shop_products[shop_id] = []
+
+            shop_products[shop_id].append({
+                'product': product,
+                'quantity': quantity,
+                'price': product.price  # lưu giá tại thời điểm mua
+            })
+
+        orders_created = []
+
+        # Tạo đơn hàng cho từng shop
+        for shop_id, products in shop_products.items(): #items() trả về từng cặp (shop_id, products) để duyệt từng shop
+            total_price = sum([p['price'] * p['quantity'] for p in products])
+            shop = Shop.objects.get(pk=shop_id)
+            payment_method = request.data.get("payment_method")
+            if not payment_method:
+                return Response(
+                    {"Cảnh báo": "Bạn phải chọn phương thức thanh toán!"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            # Tạo order
+            order = Order.objects.create(user=user, shop=shop, total_price=total_price, payment_method=payment_method)
+
+            # Tạo chi tiết đơn hàng
+            for detail in products:
+                OrderDetail.objects.create(
+                    order=order,
+                    product=detail['product'],
+                    quantity=detail['quantity'],
+                    price=detail['price']
+                )
+
+            orders_created.append(order)
+
+        serializer = OrderSerializer(orders_created, many=True)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+    @action(methods=['patch'], detail=True, url_path="cancel")
+    def cancle_order(self, request, pk):
+        try:
+            order = Order.objects.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({"Lỗi": "không tìm thấy đơn hàng!"})
+        permission.IsOwnerOrder().has_object_permission(request, self, order)
+
+        #nếu người dùng hợp lệ thì xử lý hủy đơn hàng
+        if order.status in[ order.OrderStatus.PENDING, order.OrderStatus.CONFIRMED]:
+            order.status = order.OrderStatus.CANCELLED
+            order.save()
+            return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
+        else:
+            return Response({"Chi tiết": "Bạn không thể hủy đơn hàng này!"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+    @action(methods=['patch'], detail=True, url_path="confirm")
+    def confirm(self, request, pk):
+        try:
+            order = Order.objects.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({"Chi tiết": "Không tìm thấy đơn hàng!"})
+        shop = order.shop
+        IsOwnerShop().has_object_permission(request, self, shop)
+
+        if order.status == order.OrderStatus.PENDING:
+            order.status = order.OrderStatus.CONFIRMED
+            order.save()
+            return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
+        return Response({"Chi tiết": "Không thể cập nhật đơn hàng"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+    @action(methods=['get'], url_path="get-order-shop", detail=False)
+    def get_order_shop(self, request, ):
+        if not IsSeller().has_permission(request, self):
+            raise PermissionDenied({"Bạn không phải người bán!"})
+        try:
+            shop = Shop.objects.get(user=request.user)
+        except Shop.DoesNotExist:
+            return Response({"Chi tiết":"Bạn không có shop!"})
+
+        IsOwnerShop().has_object_permission(request, self, shop)
+
+        status_params = request.query_params.get("status", None)
+        orders = Order.objects.filter(shop=shop)
+        if status_params:
+            orders = orders.filter(status=status_params)
+        if orders.exists:
+            return Response({"Chi tiết: Bạn không có đơn hàng nào!"})
+        return Response(OrderSerializer(orders, many=True).data, status=status.HTTP_200_OK)
+
+
+    #lấy danh dách order theo trạng thái đơn hàng
+    @action(methods=['get'], detail=False, url_path="get-order-buyer")
+    def get_order_buyer(self, request):
+        # Kiểm tra quyền người mua
+        if not IsBuyer().has_permission(request, self):
+            raise PermissionDenied("Bạn không phải là người mua!")
+
+        # Lọc đơn hàng theo người dùng
+        orders = Order.objects.filter(user=request.user)
+
+        # Lọc theo trạng thái nếu có
+        status_param = request.query_params.get("status")
+        if status_param:
+            orders = orders.filter(status=status_param)
+
+        p = paginator.ItemPaginator()
+        page = p.paginate_queryset(orders, request)
+        if page:
+            return Response(OrderSerializer(page, many=True).data, status=status.HTTP_200_OK)
+
+        return Response(OrderSerializer(orders, many=True).data, status=status.HTTP_200_OK)
+
+
+class OrderDetailViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView):
+    queryset = OrderDetail.objects.select_related('order', 'order__shop', 'order__shop__user').filter(active=True)
+    serializer_class = OrderDetailSerializer
+    permission_classes = [IsBuyer]
+
+
+
+
+
+
+

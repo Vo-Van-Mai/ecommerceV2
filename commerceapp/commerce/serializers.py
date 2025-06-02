@@ -3,7 +3,7 @@ from itertools import product
 from django.utils.translation.trans_null import activate
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer, SerializerMethodField
-from .models import Category, Product, Comment, User, Shop, Like, Cart, CartItem, Payment, ImageProduct
+from .models import Category, Product, Comment, User, Shop, Like, Cart, CartItem, Payment, ImageProduct, Order, OrderDetail
 
 class CategorySerializer(ModelSerializer):
 
@@ -239,3 +239,47 @@ class CartSerializer(ModelSerializer):
         model = Cart
         fields = '__all__'
         read_only_fields = ['id', 'user']
+
+
+class OrderSerializer(ModelSerializer):
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["user"] = {
+            "id": instance.user.id,
+            "username": instance.user.username,
+            "phone": instance.user.phone,
+            "email": instance.user.email
+        }
+        return data
+
+    class Meta:
+        model = Order
+        fields = "__all__"
+        read_only_fields = ['id', 'user', 'shop']
+
+
+class OrderDetailSerializer(ModelSerializer):
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["product"] = {
+            "id": instance.product.id,
+            "name": instance.product.name,
+            "price": instance.product.price
+        }
+
+        data["order"] = {
+            "id": instance.order.id,
+            "shop": instance.order.shop.id
+        }
+
+        data["shop"] = {
+        "id": instance.order.shop.id,
+        "name": instance.order.shop.user.username
+        }
+        return data
+
+    class Meta:
+        model = OrderDetail
+        fields = "__all__"

@@ -6,10 +6,11 @@ import Styles from "./Styles";
 import * as ImagePicker from 'expo-image-picker';
 import Apis, { authAPI, endpoints  } from "../../configs/Apis";
 import { useNavigation } from "@react-navigation/native";
-import { MyUserContext } from "../../configs/Context";
+import { MyDispatchContext, MyUserContext } from "../../configs/Context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 const EditProfile = () =>{
     const user = useContext(MyUserContext);
+    const dispatch = useContext(MyDispatchContext);
     const [newUser, setNewUser] = useState({});
     const [token, setToken] = useState(null);
     const [msg, setMsg] = useState(null);
@@ -61,14 +62,12 @@ const EditProfile = () =>{
 
     const validate = () => {
         
+        
         if (newUser.password !== newUser.confirmPassword) {
             setMsg("Mật khẩu xác nhận không khớp!");
             return false;
         }
-        if (!newUser.avatar || !newUser.avatar.uri) {
-            setMsg("Vui lòng chọn ảnh đại diện!");
-            return false;
-        }
+        
         let emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(newUser.email)) {
             setMsg("Email không hợp lệ!");
@@ -113,14 +112,19 @@ const EditProfile = () =>{
     
                 if (res.status === 200)
                     {
+                        console.log("res.data user: ", res.data);
+                        dispatch({type: "update", payload: res.data});
                         console.log("Cập nhật thành công");
-                        nav.navigate('Chính');
+                        nav.navigate('Chính', {screen: "Hồ sơ"});
+                        
                     }
                 else
                     setMsg("Cập nhật thất bại!");
             }
         } catch (error) {
-            
+            console.log("error: ", error);
+            console.error(error.response.data);
+            setMsg("Đã có lỗi xảy ra khi cập nhật!");
         }finally{
             setLoading(false);
         }

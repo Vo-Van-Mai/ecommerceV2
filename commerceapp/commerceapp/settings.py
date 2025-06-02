@@ -50,9 +50,12 @@ INSTALLED_APPS = [
     'oauth2_provider',
     'corsheaders',
     'paypal.standard.ipn',
-    'payment'
+    'payment',
+    'debug_toolbar',
+
 ]
 
+STATIC_URL = '/static/'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': ( 'oauth2_provider.contrib.rest_framework.OAuth2Authentication',),
@@ -68,6 +71,7 @@ CLIENT_SECRET = 'vt9Zk6J754JBxgHZFg0BdmrSPhEbcJAhMHaHO7KDojvMdmwgUYOisX5Tt7GKwIt
 
 
 MIDDLEWARE = [
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -76,6 +80,10 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+INTERNAL_IPS = [
+'127.0.0.1', '192.168.189.1'
 ]
 
 ROOT_URLCONF = 'commerceapp.urls'

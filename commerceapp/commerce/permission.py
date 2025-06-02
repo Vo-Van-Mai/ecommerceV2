@@ -6,27 +6,27 @@ from rest_framework.permissions import BasePermission, IsAuthenticated
 class IsSeller(BasePermission):
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
-            return False
+            raise PermissionDenied("Bạn chưa đăng nhập!")
         if not request.user.is_verified_seller:
-            return PermissionDenied('Bạn không phải là người bán!')
+            raise PermissionDenied('Bạn không phải là người bán!')
         return True
 
 
 class IsBuyer(BasePermission):
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
-            return False
+            raise PermissionDenied("Bạn phải đăng nhập!")
         if not request.user.role=='buyer':
-            return PermissionDenied( "Bạn không phải là người mua!")
+            raise PermissionDenied( "Bạn không phải là người mua!")
         return True
 
 
 class IsStaff(BasePermission):
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
-            return False
+            raise PermissionDenied("Bạn phải đăng nhập!")
         if not request.user.role=='staff':
-            return PermissionDenied("Bạn không phải là nhân viên!")
+            raise PermissionDenied("Bạn không phải là nhân viên!")
         return True
 
 
@@ -40,7 +40,7 @@ class IsAdmin(BasePermission):
 
 class IsSuperUser(BasePermission):
     def has_permission(self, request, view):
-        return request.user and request.user.is_superuser
+        return request.user.is_superuser
 
 
 class IsAdminOrStaff(BasePermission):
@@ -77,3 +77,10 @@ class IsOwnerShop(IsAuthenticated):
         if shop.user != request.user:
             raise PermissionDenied("Bạn không phải là chủ sở hữu của shop này!")
         return True
+
+class IsOwnerOrder(IsAuthenticated):
+    def has_object_permission(self, request, view, order):
+        if request.user != order.user:
+            raise PermissionDenied("Bạn không phải là chủ sở hữu của đơn hàng này!")
+        return True
+

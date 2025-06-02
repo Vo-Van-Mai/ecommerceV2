@@ -1,8 +1,8 @@
-import { useContext, useEffect, useReducer, useState } from "react";
+import { useCallback, useContext, useEffect, useReducer, useState } from "react";
 import MyUserReducer from "../../Reducer/MyUserReducer";
 import { MyDispatchContext, MyUserContext } from "../../configs/Context";
 import { Button } from "react-native-paper";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Image, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import MyStyles from "../../style/MyStyles";
 import Styles from "./Styles";
@@ -56,6 +56,15 @@ const Profile = () => {
         nav.navigate("Trang chủ");
     };
 
+    useFocusEffect(
+        useCallback(() => {
+          console.log("Current user:", user);
+          if (token && user?.role === "seller") {
+            loadShop();
+          }
+        }, [token, user])
+      );
+
     return(
         <SafeAreaView>
             <ScrollView>
@@ -75,7 +84,7 @@ const Profile = () => {
                     <View style={[{ justifyContent:"space-around", marginLeft: 20} ]}>
                         <Text><Text style={{fontWeight: "bold"}}>Email: </Text>{user.email}</Text>
                         <Text><Text style={{fontWeight: "bold"}}>Số điện thoại: </Text>{user.phone}</Text>
-                        <Text><Text style={{fontWeight: "bold"}}>Giới tính: </Text> {user.gender} </Text>
+                        <Text><Text style={{fontWeight: "bold"}}>Giới tính: </Text> {user.gender === "Male" ? "Nam" : user.gender === "Female" ? "Nữ" : "Khác"} </Text>
                         <Text><Text style={{fontWeight: "bold"}}>Địa chỉ: </Text> chưa có update sau</Text>
                     </View>
                 </View>

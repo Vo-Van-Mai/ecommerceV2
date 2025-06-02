@@ -25,7 +25,7 @@ const Product = ({ route }) => {
     const [content, setContent] = useState("");
     const[reply, setReply] = useState(false);
     const [showModal, setShowModal] = useState(false);
-
+    const [parentId, setParentId] = useState(null);
 
     const loadProduct = async () => {
         try {
@@ -181,6 +181,8 @@ const Product = ({ route }) => {
                     content={content} setContent={setContent}
                     showModal={showModal} setShowModal={setShowModal}
                     comment={comment} setComment={setComment}
+                    parentId={parentId} setParentId={setParentId}
+                    reply={reply} setReply={setReply}
                     />
 
                     {/* Khu vực loadcommnt */}
@@ -193,6 +195,7 @@ const Product = ({ route }) => {
                         setStop={setStop}
                         reply={reply} setReply={setReply}
                         content={content} setContent={setContent}
+                        parentId={parentId} setParentId={setParentId}
                         />
                     </View>
                 </View>

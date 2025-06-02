@@ -1,4 +1,4 @@
-
+from random import choices
 
 import cloudinary
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -38,7 +38,7 @@ class User(AbstractUser):
         BUYER = 'buyer', 'Người mua'
 
     role = models.CharField(choices=RoleType.choices, default=RoleType.BUYER, max_length=20)
-
+    address = models.TextField(max_length=255, null=True)
 
 class BaseModel(models.Model):
     active = models.BooleanField(default=True)
@@ -99,14 +99,32 @@ class Order(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='orders')
     total_price = models.DecimalField(max_digits=10, decimal_places=0)
+    class PaymenMethod(models.IntegerChoices):
+        CASH = 1, "Thanh toán bằng tiền mặt"
+        BANKING = 2, "Thanh toán bằng ví điện tử"
+
+    payment_method = models.IntegerField(choices=PaymenMethod.choices)
+
+    class OrderStatus(models.IntegerChoices):
+        PENDING = 1, "Chờ xác nhận"
+        CONFIRMED = 2, "Đã xác nhận"
+        CANCELLED = 3, "Đã bị hủy"
+        SHIPPED = 4, "Đang được giao"
+        FAILED = 5, "Bị hủy do thanh toán thất bại"
+        DELIVERED = 6, "Đơn hàng đã được giao"
+
+    status = models.IntegerField(choices=OrderStatus.choices, default=OrderStatus.PENDING)
+
 
     def __str__(self):
         return f"Order #{self.id} by {self.user.username}"
+
 
 class OrderDetail(BaseModel):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_details')
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='order_details')
     quantity = models.IntegerField()
+    price = models.DecimalField(max_digits=10, decimal_places=0)
 
     def __str__(self):
         return f"{self.product.name} x{self.quantity} for Order #{self.order.id}"

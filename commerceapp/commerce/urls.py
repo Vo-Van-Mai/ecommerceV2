@@ -13,7 +13,8 @@ r.register('likes', views.likeViewSet, basename='likes')
 r.register('payments', views.PaymentViewSet)
 r.register('cart', views.CartViewSet, basename='cart')
 r.register('cartitems', views.CartItemViewSet, basename='cartitems')
-
+r.register("orders", views.OrderViewSet, basename='orders')
+r.register("orderdetail", views.OrderDetailViewSet, basename='orderdetail')
 
 # URL patterns for payment API
 urlpatterns = [

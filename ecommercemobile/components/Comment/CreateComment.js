@@ -5,10 +5,11 @@ import { authAPI, endpoints } from "../../configs/Apis";
 import { MyCartContext, MyUserContext } from "../../configs/Context";
 import CommentModal from "./CommentModal";
 
-const CreateComment = ({productId, reloadComment, content, setContent, showModal, setShowModal, comment, setComment}) => {
+const CreateComment = ({productId, reloadComment, content, setContent, showModal, setShowModal, comment, setComment, parentId, reply, setReply}) => {
     const user = useContext(MyUserContext);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    
 
     const validate = () => {
         if(content.trim() === ""){
@@ -23,6 +24,8 @@ const CreateComment = ({productId, reloadComment, content, setContent, showModal
     const handleSubmit = async (content) => {
         console.log("Press");
         console.log("user: ", user);
+        console.log("typeOfparentId: ", typeof parentId);
+        console.log("parentId: ", parentId);
     
         if (!user?.token) {
             Alert.alert("Bạn cần đăng nhập để bình luận!");
@@ -37,10 +40,9 @@ const CreateComment = ({productId, reloadComment, content, setContent, showModal
             console.log("url: ", url);
             const form = new FormData();
             form.append("content", content);
-            // Nếu backend không cần parent thì bạn có thể bỏ dòng sau:
-            // if(){
-            //     form.append("parent", "");
-            //  }
+            if(reply===true){
+                form.append("parent", parentId);
+             }
             console.log("form: ", form);
             const res = await authAPI(user.token).post(url, form, {
                 headers: {
@@ -66,6 +68,7 @@ const CreateComment = ({productId, reloadComment, content, setContent, showModal
             }
         } catch (error) {
             console.error("Lỗi khi gửi bình luận:", error);
+            console.error(error.response.data);
         } finally {
             setLoading(false);
         }
@@ -84,10 +87,12 @@ const CreateComment = ({productId, reloadComment, content, setContent, showModal
 
             </TouchableOpacity> */}
             <TouchableOpacity onPress={() => setShowModal(true)} style={{backgroundColor: "blue", padding: 10, borderRadius: 10, flex: 2, margin: 5}}>
-                <Text style={{color: "white"}}>Thêm comment</Text>
+                <Text style={{color: "white", textAlign: "center"}}>Thêm bình luận</Text>
 
             </TouchableOpacity>
             <CommentModal visible={showModal} onClose={() => setShowModal(false)} onSubmit={(handleSubmit)} 
+            setContent={setContent} content={content} isUpdate={false} />
+            <CommentModal visible={reply} onClose={() => setReply(false)} onSubmit={(handleSubmit)} 
             setContent={setContent} content={content} isUpdate={false} />
         </View>
     )

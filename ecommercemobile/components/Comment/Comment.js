@@ -5,12 +5,10 @@ import Styles from "./Styles";
 import { MyUserContext } from "../../configs/Context";
 import CommentModal from "./CommentModal";
 
-const Comment = ({ productId, reload, loadMore, setLoadMore , setStop, comment, setComment, ownerCmt, setOwnerCmt, setReply, content, setContent}) => {
+const Comment = ({ productId, reload, loadMore, setLoadMore , setStop, comment, setComment, ownerCmt, setOwnerCmt, setReply, content, setContent, setParentId}) => {
     const user = useContext(MyUserContext);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
-    const [parentId, setParentId] = useState(null);
-    const [idComment, setIdComment] = useState(null);
     const [show, setShow] = useState(false);
     const [selectedCommentId, setSelectedCommentId] = useState(null);
     const [isUpdate, setIsUpdate] = useState(false);

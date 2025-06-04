@@ -90,7 +90,9 @@ const TabNavigator = () => {
       {user?.role==="buyer" && <Tab.Screen name ="Giỏ hàng" component={Cart} options={{tabBarIcon: () => 
         (<Icon name="shopping-cart" size={28} />), tabBarBadge: cart?.items?.length > 0 ? cart.items.length : null,  }} /> }
       
-      {user?.role==="staff" || user?.role==="admin" && <Tab.Screen name="Danh sách" component={ListSeller} options={{ tabBarIcon: () => <Icon size={28} name="users" /> }} />}
+      {user?.role==="staff" && <Tab.Screen name="Danh sách" component={ListSeller} options={{ tabBarIcon: () => <Icon size={28} name="users" /> }} />}
+      
+      {user?.role==="admin" && <Tab.Screen name="Danh sách" component={ListSeller} options={{ tabBarIcon: () => <Icon size={28} name="users" /> }} />}
       
       {user === null ? (
         <Tab.Screen name="Đăng nhập" component={AuthStackNavigator} options={{ tabBarIcon: () => <Icon size={28} name="user-circle-o" /> }} />

@@ -780,8 +780,9 @@ class OrderDetailViewSet(viewsets.ViewSet, generics.ListAPIView):
     permission_classes = [permission.IsOwnerOrder]
 
     def get_queryset(self):
-        # chỉ lấy OrderDetail mà order thuộc về người dùng hiện tại
-        return OrderDetail.objects.select_related('order', 'order__shop', 'order__shop__user').filter(active=True, order__user=self.request.user)
+        if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
+            return OrderDetail.objects.none()
+        return OrderDetail.objects.filter(active=True, order__user=self.request.user)
 
     def retrieve(self, request, pk=None):
         try:

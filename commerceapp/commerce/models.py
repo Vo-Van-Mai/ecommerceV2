@@ -9,6 +9,7 @@ from ckeditor.fields import RichTextField
 from unicodedata import category
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
+from django.utils import timezone
 
 
 class User(AbstractUser):
@@ -39,6 +40,8 @@ class User(AbstractUser):
 
     role = models.CharField(choices=RoleType.choices, default=RoleType.BUYER, max_length=20)
     address = models.TextField(max_length=255, null=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    updated_date = models.DateTimeField(auto_now=True)
 
 class BaseModel(models.Model):
     active = models.BooleanField(default=True)

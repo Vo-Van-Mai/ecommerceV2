@@ -1,3 +1,4 @@
+
 import { Dimensions, FlatList, Image, RefreshControl, ScrollView, SectionList, StatusBar, StyleSheet, Switch, Text, View, Animated, TextComponent, SafeAreaView, TouchableOpacity } from "react-native";
 import { useEffect, useState, useRef } from "react";
 import { Button } from "react-native";

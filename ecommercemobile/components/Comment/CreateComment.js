@@ -2,13 +2,15 @@ import { useContext, useState } from "react";
 import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from "react-native";
 import { TextInput } from "react-native-gesture-handler";
 import { authAPI, endpoints } from "../../configs/Apis";
-import { MyCartContext, MyUserContext } from "../../configs/Context";
+import { MyUserContext } from "../../configs/Context";
 import CommentModal from "./CommentModal";
+import { useNavigation } from "@react-navigation/native";
 
 const CreateComment = ({productId, reloadComment, content, setContent, showModal, setShowModal, comment, setComment, parentId, reply, setReply}) => {
     const user = useContext(MyUserContext);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const nav = useNavigation();
     
 
     const validate = () => {
@@ -22,13 +24,25 @@ const CreateComment = ({productId, reloadComment, content, setContent, showModal
     
 
     const handleSubmit = async (content) => {
-        console.log("Press");
-        console.log("user: ", user);
-        console.log("typeOfparentId: ", typeof parentId);
-        console.log("parentId: ", parentId);
     
         if (!user?.token) {
-            Alert.alert("Bạn cần đăng nhập để bình luận!");
+            // Alert.alert("Bạn cần đăng nhập để bình luận!");
+            // return;
+            Alert.alert(
+                "Cảnh báo",
+                "Bạn phải đăng nhập để bình luận!",[
+                    {
+                        text: "Hủy",
+                        style: "cancel",
+                    },
+                    {
+                        text: "Đăng nhập",
+                        onPress: () => {
+                            nav.navigate("Chính", {screen: "Đăng nhập"});
+                        }
+                    }
+                ]
+            );
             return;
         }
         if(!validate()){
@@ -37,21 +51,17 @@ const CreateComment = ({productId, reloadComment, content, setContent, showModal
         try {
             setLoading(true);
             const url = endpoints["comment"](productId);
-            console.log("url: ", url);
             const form = new FormData();
             form.append("content", content);
             if(reply===true){
                 form.append("parent", parentId);
              }
-            console.log("form: ", form);
             const res = await authAPI(user.token).post(url, form, {
                 headers: {
                     "Content-Type": "multipart/form-data",
                 },
             });
-            console.log("res.status:", res.status);
             const newComment = res?.data;
-            console.log("newComment: ", newComment);
 
             setComment([
                 newComment,
@@ -60,15 +70,15 @@ const CreateComment = ({productId, reloadComment, content, setContent, showModal
     
             if (res.status === 201) {
                 setContent("");
-                console.log("Bình luận đã được gửi thành công");
                 reloadComment?.(); // Gọi reload nếu có
                 return true; 
             } else {
-                console.log("Gửi bình luận thất bại!");
+                Alert.alert("Gửi bình luận thất bại!");
             }
         } catch (error) {
-            console.error("Lỗi khi gửi bình luận:", error);
-            console.error(error.response.data);
+            // console.error("Lỗi khi gửi bình luận:", error);
+            // console.error(error.response.data);
+            Alert.alert("Lỗi khi gửi bình luận!");
         } finally {
             setLoading(false);
         }

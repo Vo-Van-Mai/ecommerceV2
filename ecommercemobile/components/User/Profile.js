@@ -9,6 +9,8 @@ import Styles from "./Styles";
 import Icon from 'react-native-vector-icons/FontAwesome';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { authAPI, endpoints } from "../../configs/Apis";
+import { MySetCartContext } from "../../configs/CartContext";
+import { MyOrderContext, MySetOrderContext } from "../../configs/OrderContext";
 
 const Profile = () => {
     const user = useContext(MyUserContext);
@@ -17,6 +19,9 @@ const Profile = () => {
     const [loading, setLoading] = useState(false);
     const [shop, setShop] = useState({});
     const nav = useNavigation();
+    const setCart = useContext(MySetCartContext);
+    const setOrder= useContext(MySetOrderContext);
+    const [orderQuantity, setOrderQuantity] = useState(0);
 
     const getToken = async () => {
         const storedToken = await AsyncStorage.getItem("token");
@@ -37,6 +42,25 @@ const Profile = () => {
         }
     };
 
+    const loadOrder = async () => {
+        try {
+            
+            let Orderres = await authAPI(user.token).get(endpoints['order']);
+            console.log(`Đơn hàng của user ${user.username} là:`, Orderres.data); // Kiểm tra dữ liệu trả về
+
+            // countOrder(Orderres.data);
+            // console.log("Số đơn hàng của bạn là:", countOrder(Orderres.data));
+            setOrderQuantity(countOrder(Orderres.data));
+            setOrder({
+                type: "set_order",
+                payload: Orderres.data
+            });
+
+        } catch (error) {
+            console.error('Error loading order:', error); // Log lỗi nếu API thất bại
+        }
+    }
+
     
     // Lấy token
     useEffect(() => {
@@ -53,8 +77,17 @@ const Profile = () => {
         dispatch({
             "type": "logout"
         });
+        setCart({});
         nav.navigate("Trang chủ");
+        setOrder({
+            type: "reset_order"
+        })
     };
+
+    const countOrder = (order) => {
+        if (!Array.isArray(order)) return 0;
+        return order.filter(item => item.status === 1).length;
+    }
 
     useFocusEffect(
         useCallback(() => {
@@ -62,8 +95,14 @@ const Profile = () => {
           if (token && user?.role === "seller") {
             loadShop();
           }
+          else if (token && user?.role === "buyer") {
+            console.log("Đang load order");
+            loadOrder();
+          }
         }, [token, user])
       );
+
+
 
     return(
         <SafeAreaView>
@@ -93,11 +132,15 @@ const Profile = () => {
                 {user.role === "buyer" && <View>
                     <View style={Styles.border}>
 
-                        <Text style={{fontWeight: "bold"}}>Đơn hàng của bạn</Text>
-                        {/* Khu vực đơn mua của seller*/}
+                        <Text style={{fontWeight: "bold"}}>Đơn hàng của bạn nè!</Text>
+                        {/* Khu vực đơn mua của buyer*/}
                         <View style={[{flexDirection: "row", justifyContent:"center", marginTop: 5}]}>
-                            <TouchableOpacity style={{alignItems:"center", margin: 5, padding: 5}}>
+                            <TouchableOpacity onPress={() => nav.navigate("Đơn hàng")} style={{alignItems:"center", margin: 5, padding: 5}}>
+                                <View style={Styles.countOrder}>
+                                    <Text style={{color: "white", fontSize: 12}}>{orderQuantity}</Text>
+                                </View>
                                 <Icon name="wpforms" size={30} color={"gray"}/>
+                                
                                 <Text>Chờ xác nhận</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={{alignItems:"center", margin: 5, padding: 5}}>

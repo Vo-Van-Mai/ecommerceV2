@@ -49,9 +49,9 @@ const Comment = ({ productId, reload, loadMore, setLoadMore , setStop, comment, 
                     onPress: async () => {
                         try {
                             const url = `${endpoints["deleteComment"](commentId)}`;
-                            console.log("urlc xóa: ", url);
+                            // console.log("urlc xóa: ", url);
                             const res = await authAPI(user.token).delete(url);
-                            console.log("res: ", res.data);
+                            // console.log("res: ", res.data);
                             setComment(prevComment => prevComment.filter(c => c.id !== commentId));
                         } catch (error) {
                             console.log("Lỗi xóa comment:", error);
@@ -68,7 +68,7 @@ const Comment = ({ productId, reload, loadMore, setLoadMore , setStop, comment, 
       
         try {
           const url = `${endpoints["deleteComment"](selectedCommentId)}`;
-          console.log("url sửa: ", url);
+        //   console.log("url sửa: ", url);
           const res = await authAPI(user.token).patch(url, { content: newContent });
         //   console.log("res newContent: ", res.data);
           setComment(prevComment =>
@@ -93,7 +93,7 @@ const Comment = ({ productId, reload, loadMore, setLoadMore , setStop, comment, 
                         setSelectedCommentId(item.id);   // Lưu ID comment đang sửa
                         setIsUpdate(true);
                         setShow(true);
-                        console.log("Sửa comment:", item.id);
+                        // console.log("Sửa comment:", item.id);
                         
                     }}
                 >

@@ -154,7 +154,8 @@ class UserSerializer(ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'email', 'username', 'password', 'gender' ,'phone', 'avatar', 'role']
+        fields = ['id','first_name', 'last_name', 'email', 'username', 'password', 'gender' ,'phone', 'avatar', 'role', 'created_date', 'updated_date', 'is_verified_seller']
+        read_only_fields = ['id', 'is_verified_user']
         extra_kwargs ={
             'password' : {
                 "write_only": True
@@ -263,10 +264,12 @@ class OrderDetailSerializer(ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        image = instance.product.imageproduct.first()
         data["product"] = {
             "id": instance.product.id,
             "name": instance.product.name,
-            "price": instance.product.price
+            "price": instance.product.price,
+            "image": image.pathImg.url if image and image.pathImg else None
         }
 
         data["order"] = {
@@ -275,8 +278,7 @@ class OrderDetailSerializer(ModelSerializer):
         }
 
         data["shop"] = {
-        "id": instance.order.shop.id,
-        "name": instance.order.shop.user.username
+        "name": instance.order.shop.name
         }
         return data
 

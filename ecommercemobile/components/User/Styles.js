@@ -142,6 +142,19 @@ export default StyleSheet.create({
     right: 0,
     height: 45,
   },
+  countOrder:{
+    position: 'absolute',
+    top: -4,
+    right: 25,
+    backgroundColor: 'red',
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000
+  } ,
 
   //editprofile
   fontsize:{

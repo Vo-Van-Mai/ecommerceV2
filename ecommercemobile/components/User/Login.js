@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useContentWidth } from 'react-native-render-html';
 import { MyDispatchContext } from '../../configs/Context';
 import { useNavigation } from '@react-navigation/native';
+import { MySetCartContext } from '../../configs/CartContext';
 
 const Login = () => {
   const [user, setUser] = useState({});
@@ -15,6 +16,7 @@ const Login = () => {
   const [loading, SetLoading] = useState(false);
   const dispatch = useContext(MyDispatchContext);
   const nav = useNavigation();
+  const setCart = useContext(MySetCartContext);
   const setState = (value, field) => {
     setUser({...user, [field]:value} )
   };
@@ -36,8 +38,8 @@ const Login = () => {
           const form = new URLSearchParams();
           form.append("username", user.username);
           form.append("password", user.password);
-          form.append("client_id", "otU6JHb3hEnlF9JaRxOsLBOGApEiZ5SYhK22rE9x");
-          form.append("client_secret", "vt9Zk6J754JBxgHZFg0BdmrSPhEbcJAhMHaHO7KDojvMdmwgUYOisX5Tt7GKwItbtgbYd28onjwfBkAFSoGdgfJqEhJ4FT2yR3e37bBMNdMzBhKC9AZBy4tWvlLcKWfn");
+          form.append("client_id", process.env.REACT_APP_CLIENT_ID);
+          form.append("client_secret", process.env.REACT_APP_CLIENT_SECRET);
           form.append("grant_type", "password");
 
           let res = await Apis.post(endpoints['login'], form.toString(), {
@@ -52,6 +54,14 @@ const Login = () => {
             "type": "login",
             "payload": {...u.data, token: res.data.access_token}
           });
+
+          // Gọi loadCart ở đây
+          const cartRes = await authAPI(res.data.access_token).get(endpoints['cart']);
+            setCart({
+              type: "set_cart",
+              payload: cartRes.data
+            });
+          
           nav.navigate('Trang chủ');
 
         

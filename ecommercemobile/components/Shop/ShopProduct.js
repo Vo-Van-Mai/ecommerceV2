@@ -25,7 +25,7 @@ const ShopProduct = ({route}) => {
             try {
                 setLoading(true);
                 let res = await authAPI(token).get(endpoints['shopProducts'](shopId));
-                console.info(res);
+                // console.info(res);
                 setProducts(prevProducts => {
                     const newProducts = res.data?.results;
                     return ([

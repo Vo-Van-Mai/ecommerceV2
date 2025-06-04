@@ -171,11 +171,46 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAP
 
         return Response(ProductDetailSerializer(self.get_object(), context={'request': request}).data, status=status.HTTP_200_OK)
 
-class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
-    queryset = User.objects.filter(is_active=True)
-    serializer_class = UserSerializer
+class UserViewSet(viewsets.ViewSet):
+    # queryset = User.objects.filter(is_active=True)
+    # serializer_class = UserSerializer
     parser_classes = [MultiPartParser, FormParser]
 
+    def list(self, request, *args, **kwargs):
+        if not permission.IsAdminOrStaff().has_permission(request, self):
+            return Response(
+                {"Lỗi": "Bạn không phải là Admin hay Nhân viên hệ thống!"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        role = request.query_params.get('role', None)
+        status_seller = request.query_params.get("is_verified_seller", None)
+
+        try:
+            if role == 'seller':
+                if status_seller == "true":
+                    users = User.objects.filter(is_active=True, role="seller",is_verified_seller=1)
+                elif status_seller == "false":
+                    users = User.objects.filter(is_active=True, role="seller",is_verified_seller=0)
+                else:
+                    users = User.objects.filter(is_active=True, role="seller")
+            elif role == 'buyer':
+                users = User.objects.filter(is_active=True, role='buyer')
+            elif role == 'staff':
+                users = User.objects.filter(is_active=True, role='staff')
+            else:
+                users = User.objects.filter(is_active=True)
+        except User.DoesNotExist:
+            return Response({"Chi tiết": "Không có người dùng nào!"})
+
+        users = users.order_by('-id')
+        p = paginator.UserPaginator()
+        page = p.paginate_queryset(users, request)
+        if page:
+            u = UserSerializer(page, many=True)
+            return p.get_paginated_response(u.data)
+        else:
+            return Response(UserSerializer(users, many=True).data, status=status.HTTP_200_OK)
 
     def register_user(self, request, role_name, is_staff=False):
         serializer = UserSerializer(data=request.data)
@@ -233,7 +268,7 @@ class UserViewSet(viewsets.ViewSet, generics.ListAPIView):
             user.save()
             return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
         except:
-            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'Lỗi': 'Không tìm thấy nguười dùng này!'}, status=status.HTTP_404_NOT_FOUND)
 
     @action(methods=['patch'], detail=True, url_path="cancel-seller",
             permission_classes=[permission.IsAdminOrStaff])
@@ -740,11 +775,23 @@ class OrderViewSet(viewsets.ViewSet):
         return Response(OrderSerializer(orders, many=True).data, status=status.HTTP_200_OK)
 
 
-class OrderDetailViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAPIView):
-    queryset = OrderDetail.objects.select_related('order', 'order__shop', 'order__shop__user').filter(active=True)
+class OrderDetailViewSet(viewsets.ViewSet, generics.ListAPIView):
     serializer_class = OrderDetailSerializer
-    permission_classes = [IsBuyer]
+    permission_classes = [permission.IsOwnerOrder]
 
+    def get_queryset(self):
+        # chỉ lấy OrderDetail mà order thuộc về người dùng hiện tại
+        return OrderDetail.objects.select_related('order', 'order__shop', 'order__shop__user').filter(active=True, order__user=self.request.user)
+
+    def retrieve(self, request, pk=None):
+        try:
+            order = Order.objects.get(pk=pk, user=request.user)
+        except Order.DoesNotExist:
+            return Response({"Chi tiết": "Không tìm thấy đơn hàng!"}, status=status.HTTP_404_NOT_FOUND)
+
+        details = OrderDetail.objects.select_related('product', 'order__shop', 'order').filter(order=order)
+        serializer = OrderDetailSerializer(details, many=True)
+        return Response(serializer.data)
 
 
 

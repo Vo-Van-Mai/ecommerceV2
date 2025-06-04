@@ -9,6 +9,8 @@ import { MyUserContext } from "../../configs/Context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import Comment from "../Comment/Comment";
 import CreateComment from "../Comment/CreateComment";
+import { MySetCartContext } from "../../configs/CartContext";
+import { useNavigation } from "@react-navigation/native";
 
 const Product = ({ route }) => {
 
@@ -26,12 +28,13 @@ const Product = ({ route }) => {
     const[reply, setReply] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [parentId, setParentId] = useState(null);
+    const setCart = useContext(MySetCartContext);
+    const nav = useNavigation();
 
     const loadProduct = async () => {
         try {
             setLoading(true);
             let res = await Apis.get(endpoints['product_detail'](productId));
-            console.info("res product detail: ", res.data);
             setProduct(res.data);
 
             if (res.data.images && res.data.images.length > 0) {
@@ -40,7 +43,8 @@ const Product = ({ route }) => {
                 Alert.alert("Thông báo", "Sản phẩm chưa có ảnh!");
             }
         } catch (error) {
-            console.error(error);
+            // console.error(error);
+            console.log("Lỗi khi tải thông tin sản phẩm:", error);
             Alert.alert("Lỗi", "Không thể tải thông tin sản phẩm");
         } finally {
             setLoading(false);
@@ -71,38 +75,77 @@ const Product = ({ route }) => {
     }
 
     const addToCart = async () => {
-        
-        if (user===null)
-        {
-            Alert.alert("Cảnh báo!", "Hãy đănh nhập để có thể đặt hàng!")
-        }
-        else {
+        if (user === null) {
+            Alert.alert("Cảnh báo!", "Hãy đăng nhập để có thể đặt hàng!", [
+                {
+                    text: "OK",
+                    onPress: () => {
+                        nav.navigate("Chính", {
+                            screen: "Đăng nhập"
+                        });
+                    }
+                },
+                {
+                    text: "Hủy",
+                    style: "cancel",
+                }
+            ]);
+        } else {
             try {
                 setLoading(true);
-                console.info(product.id);
-                
-                console.info("Token: ", user.token);
-                console.info("user: ", user.username);
-                const form = new FormData();
-                form.append("product_id", productId);
-                form.append("quantity", 1);
-                const res = await authAPI(user.token).post(endpoints['addToCart'], {
+                // console.info("Product ID:", productId);
+                // console.info("Token:", user.token);
+                // console.info("User:", user.username);
+    
+                // Gửi dữ liệu dạng JSON
+                const body = {
                     product_id: productId,
                     quantity: 1
-                    });
+                };
+    
+                const res = await authAPI(user.token).post(endpoints['addToCart'], body, {
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                });
+    
                 if (res.status === 200) {
-                Alert.alert("Thành công", "Đã thêm vào giỏ hàng!");
+                    let rescart = await authAPI(user.token).get(endpoints['cart']);
+                    // console.log("URL:", endpoints["cart"]);
+                    // console.log("Res.data:", rescart.data);
+    
+                    setCart({
+                        type: "add_item",
+                        payload: rescart.data
+                    });
+    
+                    Alert.alert("Thành công", "Thêm sản phẩm vào giỏ hàng thành công!", [
+                        {
+                            text: "OK",
+                            onPress: () => {
+                                nav.navigate("Chính", {
+                                    screen: "Giỏ hàng"
+                                });
+                            }
+                        }
+                    ]);
                 } else {
-                Alert.alert("Lỗi", "Không thể thêm vào giỏ hàng!");
+                    Alert.alert("Lỗi", "Không thể thêm vào giỏ hàng!");
                 }
             } catch (error) {
-                console.error(error);
-                console.log(error.message);   
-            } finally{
+                if (error.response) {
+                    console.log("Chi tiết lỗi:", error.response.data);
+                    const errMsg = error.response.data.error || "Không thể thêm vào giỏ hàng!";
+                    Alert.alert("Lỗi", errMsg);
+                } else {
+                    Alert.alert("Lỗi", "Đã xảy ra lỗi, vui lòng thử lại sau!");
+                }
+            } finally {
                 setLoading(false);
             }
         }
     }
+    
     
 
     return (

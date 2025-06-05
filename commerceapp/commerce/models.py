@@ -139,10 +139,7 @@ class OrderDetail(BaseModel):
 class Payment(BaseModel):
     payment_method_choices = [
         ('cod', 'Cash On Delivery'),
-        ('paypal', 'PayPal'),
-        ('stripe', 'Stripe'),
-        ('momo', 'MoMo'),
-        ('zalopay', 'ZaloPay'),
+        ('momo', 'MoMo')
     ]
 
     payment_status_choices = [
@@ -157,12 +154,8 @@ class Payment(BaseModel):
     method = models.CharField(max_length=20, choices=payment_method_choices)
     status = models.CharField(max_length=20, choices=payment_status_choices, default='pending')
     transaction_id = models.CharField(max_length=255, blank=True, null=True)
-    payment_details = models.JSONField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-created_at']
         verbose_name = _('Payment')
         verbose_name_plural = _('Payments')
 

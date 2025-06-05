@@ -15,7 +15,9 @@ r.register('cart', views.CartViewSet, basename='cart')
 r.register('cartitems', views.CartItemViewSet, basename='cartitems')
 r.register("orders", views.OrderViewSet, basename='orders')
 r.register("orderdetail", views.OrderDetailViewSet, basename='orderdetail')
-
+r.register('compare', views.ProductComparisonViewSet, basename='product-comparison')
+r.register('seller-statistics', views.RevenueStatisticsViewSet, basename='seller-revenue-stats')
+r.register('admin-statistics', views.RevenueStatisticsViewSet, basename='admin-revenue-stats')
 
 # URL patterns for payment API
 urlpatterns = [

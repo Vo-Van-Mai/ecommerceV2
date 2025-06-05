@@ -185,24 +185,19 @@ class ShopSerializer(ModelSerializer):
 
 
 class PaymentSerializer(serializers.ModelSerializer):
+    # Fields for payment initialization
+    order_id = serializers.IntegerField(write_only=True, required=False)
+    return_url = serializers.URLField(write_only=True, required=False)
+
+    # Fields for payment verification
+    payment_data = serializers.JSONField(write_only=True, required=False)
+
     class Meta:
         model = Payment
         fields = ['id', 'order', 'amount', 'method', 'status',
-                  'transaction_id', 'payment_details', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'transaction_id', 'status', 'created_at', 'updated_at']
-
-
-class PaymentInitSerializer(serializers.Serializer):
-    order_id = serializers.IntegerField()
-    method = serializers.ChoiceField(choices=Payment.payment_method_choices)
-    return_url = serializers.URLField(required=False)
-
-
-class PaymentVerifySerializer(serializers.Serializer):
-    payment_id = serializers.IntegerField()
-    transaction_id = serializers.CharField(required=False)
-    payment_data = serializers.JSONField(required=False)
-
+                  'transaction_id', 'created_date', 'updated_date',
+                  'order_id', 'return_url', 'payment_data']
+        read_only_fields = ['id', 'transaction_id', 'status', 'created_date', 'updated_date']
 
 
 
@@ -289,3 +284,33 @@ class OrderDetailSerializer(ModelSerializer):
     class Meta:
         model = OrderDetail
         fields = "__all__"
+
+class ProductComparisonSerializer(serializers.ModelSerializer):
+    shop = ShopSerializer(read_only=True)
+    category = CategorySerializer(read_only=True)
+
+    class Meta:
+        model = Product
+        fields = ['id', 'name', 'description', 'category', 'shop']
+
+
+class RevenueStatisticsSerializer(serializers.Serializer):
+    shop_id = serializers.IntegerField()
+    shop_name = serializers.CharField()
+    period_type = serializers.CharField()
+    statistics = serializers.ListField()
+    total_revenue_all_periods = serializers.DecimalField(max_digits=15, decimal_places=2)
+    total_orders_all_periods = serializers.IntegerField()
+
+
+class AdminRevenueStatisticsSerializer(serializers.Serializer):
+    period = serializers.ChoiceField(choices=['month', 'quarter', 'year'])
+    total_revenue = serializers.DecimalField(max_digits=12, decimal_places=2)
+    total_orders = serializers.IntegerField()
+    total_products_sold = serializers.IntegerField()
+
+    stats = serializers.ListField(
+        child=serializers.DictField(
+            child=serializers.Field()
+        )
+    )

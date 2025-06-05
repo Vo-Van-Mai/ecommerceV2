@@ -184,10 +184,11 @@ class UserViewSet(viewsets.ViewSet):
             )
 
         role = request.query_params.get('role', None)
-        status_seller = request.query_params.get("is_verified_seller", None)
+
 
         try:
             if role == 'seller':
+                status_seller = request.query_params.get("is_verified_seller", None)
                 if status_seller == "true":
                     users = User.objects.filter(is_active=True, role="seller",is_verified_seller=1)
                 elif status_seller == "false":
@@ -598,10 +599,12 @@ class OrderViewSet(viewsets.ViewSet):
         orders = Order.objects.select_related('user', 'shop').filter(user=user)
         if not orders.exists():
             return Response({"Chi tiết": "Bạn không có đơn hàng nào!"}, status=status.HTTP_200_OK)
+
         p = paginator.ItemPaginator()
         page = p.paginate_queryset(orders, request)
         if page:
-            return Response(OrderSerializer(page, many=True).data, status=status.HTTP_200_OK)
+            o = OrderSerializer(page, many=True)
+            return p.get_paginated_response(o.data)
         else:
             return Response(OrderSerializer(orders, many=True).data,status= status.HTTP_200_OK)
 
@@ -731,25 +734,39 @@ class OrderViewSet(viewsets.ViewSet):
             return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
         return Response({"Chi tiết": "Không thể cập nhật đơn hàng"}, status=status.HTTP_400_BAD_REQUEST)
 
-
     @action(methods=['get'], url_path="get-order-shop", detail=False)
-    def get_order_shop(self, request, ):
+    def get_order_shop(self, request):
+        # Kiểm tra quyền người bán
         if not IsSeller().has_permission(request, self):
-            raise PermissionDenied({"Bạn không phải người bán!"})
+            raise PermissionDenied({"Chi tiết": "Bạn không phải người bán!"})
+
+        # Lấy shop của người bán
         try:
             shop = Shop.objects.get(user=request.user)
         except Shop.DoesNotExist:
-            return Response({"Chi tiết":"Bạn không có shop!"})
+            return Response({"detail": "Bạn không có shop!"}, status=status.HTTP_400_BAD_REQUEST)
 
-        IsOwnerShop().has_object_permission(request, self, shop)
+        # Kiểm tra quyền sở hữu shop
+        if not IsOwnerShop().has_object_permission(request, self, shop):
+            raise PermissionDenied({"detail": "Bạn không có quyền truy cập shop này!"})
 
+        # Lọc đơn hàng theo shop và trạng thái nếu có
         status_params = request.query_params.get("status", None)
         orders = Order.objects.filter(shop=shop)
         if status_params:
             orders = orders.filter(status=status_params)
-        if orders.exists:
-            return Response({"Chi tiết: Bạn không có đơn hàng nào!"})
-        return Response(OrderSerializer(orders, many=True).data, status=status.HTTP_200_OK)
+
+
+        if not orders.exists():
+            return Response({"detail": "Bạn không có đơn hàng nào!"}, status=status.HTTP_200_OK)
+
+        p = paginator.ItemPaginator()
+        page = p.paginate_queryset(orders, request)
+        if page:
+            o = OrderSerializer(page, many=True)
+            return p.get_paginated_response(o.data)
+        else:
+            return Response(OrderSerializer(orders, many=True).data, status=status.HTTP_200_OK)
 
 
     #lấy danh dách order theo trạng thái đơn hàng
@@ -767,12 +784,16 @@ class OrderViewSet(viewsets.ViewSet):
         if status_param:
             orders = orders.filter(status=status_param)
 
+        if not orders.exists():
+            return Response({"detail": "Bạn không có đơn hàng nào!"}, status=status.HTTP_200_OK)
+
         p = paginator.ItemPaginator()
         page = p.paginate_queryset(orders, request)
         if page:
-            return Response(OrderSerializer(page, many=True).data, status=status.HTTP_200_OK)
-
-        return Response(OrderSerializer(orders, many=True).data, status=status.HTTP_200_OK)
+            o = OrderSerializer(page, many=True)
+            return p.get_paginated_response(o.data)
+        else:
+            return Response(OrderSerializer(orders, many=True).data, status=status.HTTP_200_OK)
 
 
 class OrderDetailViewSet(viewsets.ViewSet, generics.ListAPIView):

@@ -252,6 +252,10 @@ class OrderSerializer(ModelSerializer):
             "phone": instance.user.phone,
             "email": instance.user.email
         }
+        data['shop'] ={
+            "id": instance.shop.id,
+            "name": instance.shop.name
+        }
         return data
 
     class Meta:

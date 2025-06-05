@@ -1,8 +1,8 @@
-import { Text, View, ScrollView, TouchableOpacity, Touchable, Alert } from "react-native";
+import { Text, View, ScrollView, TouchableOpacity, Touchable, Alert, TextInput } from "react-native";
 import Icon from 'react-native-vector-icons/FontAwesome';
 
 import { MyOrderContext, MySetOrderContext } from "../../configs/OrderContext";
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { Card, Divider, Badge } from "react-native-paper";
 import styles from "./Styles";
 import { formatCurrency } from "../../utils/PriceUtils";
@@ -11,16 +11,22 @@ import OrderDetail from "./OrderDetail";
 import { authAPI, endpoints } from "../../configs/Apis";
 
 const OrderItem = ({status}) => {
-    console.log("status:", status);
-    console.log(typeof status, status)
+    // console.log("status:", status);
+    // console.log(typeof status, status)
     
     const {orders, loading, error} = useContext(MyOrderContext);
     const setOrders = useContext(MySetOrderContext);
     const [showOrderDetail, setShowOrderDetail] = useState(false);
     const [loadDetail, setLoadDetail] = useState(false);
     const user = useContext(MyUserContext);
+    const [confirmOrder, setConfirmOrder] = useState({});
     const [orderDetail, setOrderDetail] = useState([]);
     console.log("order:", orders);
+    const [showSearch, setShowSearch] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [page, setPage] = useState(1);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('vi-VN', {
@@ -91,15 +97,109 @@ const OrderItem = ({status}) => {
         }
     }
 
+    const handleVerifyOrder = async(orderId) => {
+        try {
+            setLoadDetail(true);
+            setConfirmOrder(prev => ({ ...prev, [orderId]: true }));
+            let resVerifyOrder = await authAPI(user.token).patch(endpoints["orderVerify"](orderId));
 
-    
+             // Đợi thêm 2s để tạo hiệu ứng
+        await new Promise(resolve => setTimeout(resolve, 2000));
+            console.log("response thông tin đơn hàng:", resVerifyOrder.data);
+            if(resVerifyOrder.status === 200){
+                
+                setOrders({type: "confirm_order", payload: resVerifyOrder.data});
+                Alert.alert("Thành công", "Đơn hàng đã được xác nhận");
+            }
+        } catch (error) {
+            console.log("error:", error);
+        }finally{
+            setLoadDetail(false);
+            setConfirmOrder(prev => ({ ...prev, [orderId]: false }));
+        }
+    }
 
-    if (loading) return <Text style={styles.title}>Đang tải đơn hàng...</Text>;
+    const loadOrders = async (pageNum = 1) => {
+        try {
+            const endpoint = user.role === "buyer" ? endpoints['orderOfBuyer'] : endpoints['orderOfShop'];
+            const res = await authAPI(user.token).get(endpoint, {
+                params: {
+                    status: status,
+                    page: pageNum
+                }
+            });
+            
+            if (res.status === 200) {
+                if (pageNum === 1) {
+                    setOrders({
+                        type: "set_order",
+                        payload: res.data
+                    });
+                } else {
+                    // Nếu là trang tiếp theo, thêm vào danh sách hiện tại
+                    setOrders({
+                        type: "add_more_order",
+                        payload: res.data
+                    });
+                }
+            }
+        } catch (error) {
+            console.error("Error loading orders:", error);
+        } finally {
+            setIsLoadingMore(false);
+        }
+    };
+
+    useEffect(() => {
+        setPage(1);
+        loadOrders(1);
+    }, [status]);
+
+    useEffect(() => {
+        if (page > 1) {
+            setIsLoadingMore(true);
+            loadOrders(page);
+        }
+    }, [page]);
+
+    const filteredOrders = (orders?.results || []).filter(order => 
+        searchQuery ? String(order.id).includes(searchQuery) : true
+    );
+
+    if (loading && page === 1) return <Text style={styles.title}>Đang tải đơn hàng...</Text>;
     if (error) return <Text style={styles.title}>Có lỗi xảy ra: {error}</Text>;
     return (
         <ScrollView style={styles.container}>
-            {orders.filter(order =>String(order.status) === status).map((order, index) => (
-
+            <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 10,
+                paddingHorizontal: 10
+            }}>
+                <TouchableOpacity onPress={() => setShowSearch(!showSearch)} style={{padding: 5}}>
+                    <Icon name="search" size={24} color="#666" />
+                </TouchableOpacity>
+                {showSearch && (
+                    <TextInput
+                        style={{
+                            flex: 1,
+                            marginLeft: 10,
+                            height: 40,
+                            borderWidth: 1,
+                            borderColor: '#ddd',
+                            borderRadius: 20,
+                            paddingHorizontal: 15,
+                            backgroundColor: '#fff'
+                        }}
+                        placeholder="Nhập mã đơn hàng..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        keyboardType="numeric"
+                    />
+                )}
+            </View>
+            {filteredOrders.length === 0 && <Text style={styles.title}>Không tìm thấy đơn hàng</Text>}
+            {filteredOrders.map((order, index) => (
                 <Card key={order.id} style={[styles.border, { marginBottom: 15 }]}>
                     <Card.Content>
                         <View style={styles.headerContainer}>
@@ -117,16 +217,20 @@ const OrderItem = ({status}) => {
                                     {index + 1}
                                 </Badge>
 
-                                    {/* Hủy đơn hàng */}
-                                <TouchableOpacity onPress={() => handleRemoveOrder(order.id)} style={{marginTop: -4}}>
-                                    <Icon name="remove" size={25} color="red" />
-                                </TouchableOpacity>
-
-
                             </View>
                         </View>
 
                         <Divider style={styles.divider} />
+
+                        {user.role==="seller" && <View style={styles.infoContainer}>
+                            <Text style={styles.label}>Người đặt:</Text>
+                            <Text style={styles.value}>{order.user.username}</Text>
+                        </View>}
+                        
+                        {user.role==="buyer" && <View style={styles.infoContainer}>
+                            <Text style={styles.label}>Cửa hàng:</Text>
+                            <Text style={styles.value}>{order.shop.name}</Text>
+                        </View>}
 
                         <View style={styles.infoContainer}>
                             <Text style={styles.label}>Ngày đặt:</Text>
@@ -135,7 +239,7 @@ const OrderItem = ({status}) => {
 
                         <View style={styles.infoContainer}>
                             <Text style={styles.label}>Địa chỉ:</Text>
-                            <Text style={styles.value}>{order.address}</Text>
+                            <Text style={styles.value}>{order.address ?? user.address ?? "Chưa cập nhật"}</Text>
                         </View>
 
                         <View style={styles.infoContainer}>
@@ -169,10 +273,68 @@ const OrderItem = ({status}) => {
                         <View style={styles.totalContainer}>
                             <Text style={styles.totalLabel}>Tổng tiền:</Text>
                             <Text style={styles.totalPrice}>{formatCurrency(order.total_price)}</Text>
+                            {user.role === "seller" && status==="1" && <TouchableOpacity 
+                            //Xác nhận đơn hàng
+                                    onPress={() => handleVerifyOrder(order.id)} 
+                                    style={{
+                                        backgroundColor: confirmOrder[order.id] ? '#9e9e9e' : '#4CAF50',
+                                        paddingVertical: 8,
+                                        paddingHorizontal: 20,
+                                        borderRadius: 20,
+                                        elevation: 2,
+                                    }}
+                                    disabled={confirmOrder[order.id]}
+                                >
+                                    <Text style={{
+                                        color: "white",
+                                        fontWeight: '600',
+                                        fontSize: 14
+                                    }}>
+                                        {confirmOrder[order.id] ? "Đang xử lý..." : "Chốt đơn"}
+                                    </Text>
+                                </TouchableOpacity>}
+                                
+                            {user.role==="buyer" && status==="1" && 
+                                // Hủy đơn hàng
+                                <TouchableOpacity 
+                                onPress={() => handleRemoveOrder(order.id)} 
+                                style={{
+                                    backgroundColor: confirmOrder[order.id] ? '#9e9e9e' : '#ffebee',
+                                    paddingVertical: 8,
+                                    paddingHorizontal: 20,
+                                    borderRadius: 20,
+                                    elevation: 2,
+                                }}
+                                disabled={confirmOrder[order.id]}
+                            >
+                                <Text style={{
+                                    color: "#c62828",
+                                    fontWeight: '600',
+                                    fontSize: 14
+                                }}>
+                                    {loading ? "Đang xử lý..." : "Hủy đơn"}
+                                </Text>
+                            </TouchableOpacity>}
                         </View>
                     </Card.Content>
                 </Card>
             ))}
+            {orders?.next && (
+                <TouchableOpacity 
+                    onPress={() => setPage(prev => prev + 1)}
+                    style={{
+                        padding: 10,
+                        backgroundColor: '#f0f0f0',
+                        alignItems: 'center',
+                        marginTop: 10,
+                        marginBottom: 20,
+                        borderRadius: 5
+                    }}
+                    disabled={isLoadingMore}
+                >
+                    <Text>{isLoadingMore ? "Đang tải..." : "Xem thêm"}</Text>
+                </TouchableOpacity>
+            )}
             <OrderDetail orderDetail={orderDetail} show={showOrderDetail} setShow={setShowOrderDetail} setOrderDetail={setOrderDetail} loadDetail={loadDetail}/>
         </ScrollView>
     );

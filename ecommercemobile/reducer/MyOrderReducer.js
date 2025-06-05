@@ -1,33 +1,64 @@
 export const initialOrderState = {
-   orders: [],
-   loading: false,
-   error: null,
+    orders: {
+        count: 0,
+        next: null,
+        previous: null,
+        results: []
+    },
+    loading: false,
+    error: null
 };
 
 const MyOrderReducer = (state, action) => {
     switch (action.type) {
         case "set_order":
-            return { ...state, orders: action.payload };
-        case "set_order_loading":
-            return { ...state, loading: action.payload };
-        case "set_order_error":
-            return { ...state, error: action.payload };
-        case "reset_order":
-            return initialOrderState;
-        case "add_order":
-            return { ...state, orders: [...state.orders, action.payload] };
-        case "remove_order":
-            return { ...state, orders: state.orders.filter(order => order.id !== action.payload) };
-        case "cancel_order":
+            return { 
+                ...state, 
+                orders: action.payload
+            };
+            
+        case "add_more_order":
             return {
                 ...state,
-                orders: state.orders.map(order =>
-                  order.id === action.payload.id ? action.payload : order
-                )
-              };
+                orders: {
+                    ...action.payload,
+                    results: [
+                        ...state.orders.results,
+                        ...action.payload.results
+                    ]
+                }
+            };
+
+        case "reset_order":
+            return initialOrderState;
+
+        case "add_order":
+            return { ...state, orders: [...state.orders.results, action.payload] };
+  
+        case "remove_order":
+            return {
+                ...state,
+                orders: {
+                    ...state.orders,
+                    results: state.orders.results.filter(order => order.id !== action.payload)
+                }
+            };
+
+        case "cancel_order":
+        case "confirm_order":
+            return {
+                ...state,
+                orders: {
+                    ...state.orders,
+                    results: state.orders.results.map(order =>
+                        order.id === action.payload.id ? action.payload : order
+                    )
+                }
+            };
+
         default:
             return state;
-    } 
+    }
 };
 
 export default MyOrderReducer;

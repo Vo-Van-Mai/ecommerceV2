@@ -39,7 +39,7 @@ export default StyleSheet.create({
     },
     bottomBar: {
     position: "absolute",
-    top: windowHeight*0.79, //samsung galaxy a51
+    top: windowHeight*0.73, //samsung galaxy a51
     left: 0,
     right: 0,
     // backgroundColor: "lightgray",

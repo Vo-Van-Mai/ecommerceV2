@@ -102,6 +102,7 @@ class Order(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='orders')
     total_price = models.DecimalField(max_digits=10, decimal_places=0)
+    address = models.TextField(max_length=255, null=True)
     class PaymenMethod(models.IntegerChoices):
         CASH = 1, "Thanh toán bằng tiền mặt"
         BANKING = 2, "Thanh toán bằng ví điện tử"

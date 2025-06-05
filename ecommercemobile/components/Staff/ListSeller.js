@@ -13,42 +13,43 @@ const ListSeller = () => {
     const [seller, setSeller] = useState([]);
     const [page, setPage] = useState(1);
     const [verificationFilter, setVerificationFilter] = useState('all'); // 'all', 'verified', 'unverified'
+    const [hasMore, setHasMore] = useState(true);
 
     const loadSeller = async () => {
-        if (page > 0){
-            try{
-                setLoading(true);
-                let apiUrl = `${endpoints['users']}?role=seller&page=${page}`;
-                if (verificationFilter === 'verified') {
-                    apiUrl += '&is_verified_seller=true';
-                    // console.log("apiUrl True:", apiUrl);
-                } else if (verificationFilter === 'unverified') {
-                    apiUrl += '&is_verified_seller=false';
-                }
-                
-                const res = await authAPI(user.token).get(apiUrl);
-                if (res.data.next === null){
-                    setPage(0);
-                }
-                console.log("res seller data:", res.data.results);
-                setSeller((prevSeller) => {
-                    const newSeller = res.data.results;
-                    return [
-                        ...prevSeller,
-                        ...newSeller.filter(p => !prevSeller.some(prev => prev.username === p.username))
-                    ];
-                });
-                
-            }catch(error){
-                console.log("res:", res);
-                console.log("apiUrl:", apiUrl);
-                // console.error("Lỗi khi tải danh sách người bán:", error.message);
-                console.log("error:", error.message);
-            }finally{
-                setLoading(false);
+        if (!hasMore || loading || page <= 0) return;
+    
+        try {
+            setLoading(true);
+            let apiUrl = `${endpoints['users']}?role=seller&page=${page}`;
+            if (verificationFilter === 'verified') {
+                apiUrl += '&is_verified_seller=true';
+            } else if (verificationFilter === 'unverified') {
+                apiUrl += '&is_verified_seller=false';
             }
+    
+            const res = await authAPI(user.token).get(apiUrl);
+            const newSellers = res.data.results || [];
+    
+            setSeller((prev) => [
+                ...prev,
+                ...newSellers.filter(p => !prev.some(prevItem => prevItem.username === p.username))
+            ]);
+    
+            // Kiểm tra còn trang sau không
+            if (res.data.next === null || newSellers.length === 0) {
+                setHasMore(false);
+            }
+        } catch (err) {
+            if (err.response?.status === 404) {
+                console.warn("Trang không tồn tại hoặc không còn dữ liệu.");
+                setHasMore(false);
+            } else {
+                console.error("Lỗi khi tải người bán:", err.message);
+            }
+        } finally {
+            setLoading(false);
         }
-    }
+    };
 
     const loadMoreSeller = () => {
         if (!loading && page > 0){
@@ -58,8 +59,9 @@ const ListSeller = () => {
 
     const handleFilterChange = (filterValue) => {
         setVerificationFilter(filterValue);
-        setSeller([]); // Reset list
-        setPage(1); // Reset page
+        setSeller([]);
+        setPage(1);
+        setHasMore(true); // Reset lại để cho phép tải tiếp trang
     };
 
     // Thêm hàm xử lý xóa seller khỏi danh sách

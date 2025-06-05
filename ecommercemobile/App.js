@@ -25,6 +25,9 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import Order from "./components/Order/Order";
 import Icon from 'react-native-vector-icons/FontAwesome';
 import ListSeller from "./components/Staff/ListSeller";
+import ConfirmOrder from "./components/Order/ConfirmOrder";
+import DeliveringOrder from "./components/Order/DeliveringOrder";
+import HistoryOrder from "./components/Order/HistoryOrder";
 const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 const ShopStack = createNativeStackNavigator();
@@ -73,6 +76,9 @@ const ProfileStackNavigator = () => {
     <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
       <ProfileStack.Screen name="Tôi" component={Profile} options={{headerShown: false}} />
       <ProfileStack.Screen name="Đơn hàng" component={Order} options={{headerShown: true}} />
+      <ProfileStack.Screen name="Chờ lấy hàng" component={ConfirmOrder} options={{headerShown: true}} />
+      <ProfileStack.Screen name="Đang giao hàng" component={DeliveringOrder} options={{headerShown: true}} />
+      <ProfileStack.Screen name="Lịch sử đơn hàng" component={HistoryOrder} options={{headerShown: true}} />
     </ProfileStack.Navigator>
   );
 };

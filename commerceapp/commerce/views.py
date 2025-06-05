@@ -1,6 +1,7 @@
 from venv import create
 
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 # from tarfile import TruncatedHeaderError
 
@@ -14,14 +15,17 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
 from .models import Category, Product, Comment, User, Shop,Payment, Like, Cart, CartItem, Favourite, OrderDetail, Order
-from .permission import IsSeller, IsOwnerShop, IsBuyer
-from .serializers import (CategorySerializer, ProductSerializer, CommentSerializer, UserSerializer, ProductDetailSerializer,
-                          ShopSerializer, PaymentSerializer, PaymentInitSerializer, PaymentVerifySerializer, OrderSerializer, OrderDetailSerializer,
-                          LikeSerializer, CartSerializer, CartItemSerializer, CategoryDetailSerializer)
-from .services import PaymentFactory
+from .permission import IsSeller, IsOwnerShop, IsBuyer, IsAdmin
+from .serializers import (CategorySerializer, ProductSerializer, CommentSerializer, UserSerializer,
+                          ProductDetailSerializer,
+                          ShopSerializer, PaymentSerializer, OrderSerializer, OrderDetailSerializer,
+                          LikeSerializer, CartSerializer, CartItemSerializer, CategoryDetailSerializer,
+                          ProductComparisonSerializer, RevenueStatisticsSerializer)
 from . import serializers, paginator
 from . import permission
-
+from decimal import Decimal
+from datetime import datetime
+import calendar
 
 def index(request):
     return HttpResponse("E-commerce")
@@ -409,7 +413,7 @@ class ShopViewSet(viewsets.ViewSet):
             return Response({"Lỗi": "Bạn chưa có cửa hàng nào!"}, status=status.HTTP_404_NOT_FOUND)
 
 
-class PaymentViewSet(viewsets.ModelViewSet):
+class PaymentViewSet(viewsets.GenericViewSet, generics.RetrieveAPIView):
     """ViewSet for viewing and editing Payment instances"""
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
@@ -436,11 +440,11 @@ class PaymentViewSet(viewsets.ModelViewSet):
         """
         Initialize a payment
         """
-        serializer = PaymentInitSerializer(data=request.data)
+        serializer = PaymentSerializer(data=request.data)
 
         if serializer.is_valid():
-            order_id = serializer.validated_data['order_id']
-            method = serializer.validated_data['method']
+            order_id = serializer.validated_data.get('order_id')
+            method = serializer.validated_data.get('method')
             return_url = serializer.validated_data.get('return_url')
 
             # Get the order
@@ -460,16 +464,19 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 method=method
             )
 
-            # Process payment
-            processor = PaymentFactory.get_processor(method)
-            result = processor.process_payment(payment, return_url)
+            # Return payment data for MoMo processing
+            response_data = {
+                'payment_id': payment.id,
+                'amount': payment.amount,
+                'method': payment.method,
+                'status': payment.status,
+                'order_id': order.id
+            }
 
-            if result['success']:
-                return Response(result, status=status.HTTP_200_OK)
-            else:
-                return Response({
-                    'error': result.get('message', 'Payment initialization failed')
-                }, status=status.HTTP_400_BAD_REQUEST)
+            if return_url:
+                response_data['return_url'] = return_url
+
+            return Response(response_data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -478,12 +485,18 @@ class PaymentViewSet(viewsets.ModelViewSet):
         """
         Verify a payment
         """
-        serializer = PaymentVerifySerializer(data=request.data)
+        serializer = PaymentSerializer(data=request.data)
 
         if serializer.is_valid():
-            payment_id = serializer.validated_data['payment_id']
+            payment_id = request.data.get('payment_id')
             transaction_id = serializer.validated_data.get('transaction_id')
             payment_data = serializer.validated_data.get('payment_data')
+
+            if not payment_id:
+                return Response(
+                    {'error': 'payment_id is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             # Get the payment
             payment = get_object_or_404(Payment, id=payment_id)
@@ -495,28 +508,20 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            # Verify payment
-            processor = PaymentFactory.get_processor(payment.method)
-            result = processor.verify_payment(payment, transaction_id, payment_data)
+                # Update payment with verification data
+                if transaction_id:
+                    payment.transaction_id = transaction_id
+                if payment_data:
+                    payment.payment_details = payment_data
 
-            if result['success']:
-                return Response(result, status=status.HTTP_200_OK)
-            else:
-                return Response({
-                    'error': result.get('message', 'Payment verification failed')
-                }, status=status.HTTP_400_BAD_REQUEST)
+                # Update status to completed (you can add more logic here)
+                payment.status = Payment.payment_status_choices.COMPLETED
+                payment.save()
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                serializer = PaymentSerializer(payment)
+                return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=['get'])
-    def methods(self, request):
-        """
-        Get available payment methods
-        """
-        return Response({
-            'methods': [{'value': k, 'label': v} for k, v in Payment.PAYMENT_METHOD_CHOICES]
-        })
-
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CommentViewSet(viewsets.ViewSet, generics.DestroyAPIView, generics.UpdateAPIView):
@@ -815,8 +820,355 @@ class OrderDetailViewSet(viewsets.ViewSet, generics.ListAPIView):
         serializer = OrderDetailSerializer(details, many=True)
         return Response(serializer.data)
 
+class ProductComparisonViewSet(viewsets.ViewSet):
+    """
+    ViewSet for comparing products across different stores
+    """
+
+    def list(self, request):
+        """
+        Get all products for comparison
+        """
+        products = Product.objects.select_related('shop', 'category').order_by('shop__name', 'name')
+        serializer = ProductComparisonSerializer(products, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='category/(?P<category_id>[^/.]+)')
+    def compare_by_category(self, request, category_id=None):
+        """
+        Compare products of the same category across different stores
+        """
+        try:
+            category = Category.objects.get(id=category_id)
+        except Category.DoesNotExist:
+            return Response(
+                {"error": "Không tìm thấy loại sản phẩm"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get products from different shops for the same category
+        products = Product.objects.filter(
+            category_id=category_id
+        ).select_related('shop', 'category').order_by('shop__name', 'name')
+
+        if not products.exists():
+            return Response({
+                "category_name": category.name,
+                "category_id": category.id,
+                "products": [],
+                "total_products": 0,
+                "shops_count": 0
+            })
+
+        # Count unique shops manually
+        unique_shops = set()
+        for product in products:
+            unique_shops.add(product.shop.id)
+        shops_count = len(unique_shops)
+
+        serializer = ProductComparisonSerializer(products, many=True)
+
+        response_data = {
+            "category_name": category.name,
+            "category_id": category.id,
+            "products": serializer.data,
+            "total_products": products.count(),
+            "shops_count": shops_count
+        }
+
+        return Response(response_data)
+
+    @action(detail=False, methods=['get'])
+    def compare_by_name(self, request):
+        """
+        Compare products with similar names across different stores
+        """
+        product_name = request.query_params.get('name', '')
+
+        if not product_name:
+            return Response(
+                {"error": "Product name parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Search for products with similar names across different shops
+        products = Product.objects.filter(
+            name__icontains=product_name
+        ).select_related('shop', 'category').order_by('shop__name', 'name')
+
+        if not products.exists():
+            return Response({
+                "search_term": product_name,
+                "products": [],
+                "total_products": 0,
+                "shops_count": 0
+            })
+
+        # Count unique shops manually
+        unique_shops = set()
+        for product in products:
+            unique_shops.add(product.shop.id)
+        shops_count = len(unique_shops)
+
+        serializer = ProductComparisonSerializer(products, many=True)
+
+        return Response({
+            "search_term": product_name,
+            "products": serializer.data,
+            "total_products": products.count(),
+            "shops_count": shops_count
+        })
+
+    @action(detail=False, methods=['get'])
+    def categories_with_multiple_shops(self, request):
+        """
+        Get categories that have products from multiple shops (useful for comparison)
+        """
+        categories = Category.objects.all()
+
+        category_data = []
+        for category in categories:
+            # Get products for this category
+            products = Product.objects.filter(category=category)
+
+            # Count unique shops manually
+            unique_shops = set()
+            for product in products:
+                unique_shops.add(product.shop.id)
+
+            # Only include categories with products from multiple shops
+            if len(unique_shops) > 1:
+                category_data.append({
+                    'id': category.id,
+                    'name': category.name,
+                    'description': category.description,
+                    'shops_count': len(unique_shops),
+                    'products_count': products.count()
+                })
+
+        # Sort by shops_count descending
+        category_data.sort(key=lambda x: x['shops_count'], reverse=True)
+
+        return Response({
+            'categories': category_data,
+            'total_categories': len(category_data)
+        })
 
 
+class RevenueStatisticsViewSet(viewsets.ViewSet, generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
 
+    @action(detail=True, methods=['get'], url_path='revenue-stats')
+    def get_revenue_statistics(self, request, pk=None):
+        # Get query parameters
+        period_type = request.query_params.get('period', 'month')  # month, quarter, year
+        year = request.query_params.get('year')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        # Validate shop ownership
+        shop = get_object_or_404(Shop, id=pk, owner_id=request.user)
+
+        # Base queryset for completed payments with successful orders
+        base_payments = Payment.objects.filter(
+            order__orderdetail__product__shop=shop,
+            status='completed'
+        ).distinct()
+
+        # Apply date filters
+        if year:
+            try:
+                year = int(year)
+                base_payments = base_payments.filter(created_at__year=year)
+            except ValueError:
+                return Response(
+                    {'error': 'Sai định dạng năm'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        if start_date and end_date:
+            try:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+                end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+                base_payments = base_payments.filter(
+                    created_at__date__range=[start_date, end_date]
+                )
+            except ValueError:
+                return Response(
+                    {'error': 'Sai định dạng ngày. Dùng YYYY-MM-DD'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Generate statistics based on period type
+        if period_type == 'month':
+            statistics = self.get_monthly_stats(base_payments)
+        elif period_type == 'quarter':
+            statistics = self.get_quarterly_stats(base_payments)
+        elif period_type == 'year':
+            statistics = self.get_yearly_stats(base_payments)
+        else:
+            return Response(
+                {'error': 'Giai đoạn không hợp lệ! Vui lòng chọn: month, quarter, or year'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Calculate totals manually
+        total_revenue = Decimal('0.00')
+        total_orders = 0
+
+        # Get all payments for this shop
+        for payment in base_payments:
+            total_revenue += payment.amount
+            total_orders += 1
+
+        # Prepare response data
+        response_data = {
+            'shop_id': shop.id,
+            'shop_name': shop.name,
+            'period_type': period_type,
+            'statistics': statistics,
+            'total_revenue_all_periods': total_revenue,
+            'total_orders_all_periods': total_orders
+        }
+
+        serializer = RevenueStatisticsSerializer(data=response_data)
+        if serializer.is_valid():
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def get_monthly_stats(self, payments):
+        # Get all payments for completed orders
+        monthly_stats = {}
+
+        for payment in payments.order_by('created_at'):
+            created_date = payment.created_at
+            year = created_date.year
+            month = created_date.month
+            month_key = f"{year}-{month:02d}"
+
+            if month_key not in monthly_stats:
+                monthly_stats[month_key] = {
+                    'period': month_key,
+                    'year': year,
+                    'month': month,
+                    'month_name': calendar.month_name[month],
+                    'total_revenue': Decimal('0.00'),
+                    'total_orders': 0,
+                    'avg_order_value': Decimal('0.00')
+                }
+
+            monthly_stats[month_key]['total_revenue'] += payment.amount
+            monthly_stats[month_key]['total_orders'] += 1
+
+        # Calculate average order values
+        for stats in monthly_stats.values():
+            if stats['total_orders'] > 0:
+                stats['avg_order_value'] = stats['total_revenue'] / stats['total_orders']
+
+        return list(monthly_stats.values())
+
+    def get_quarterly_stats(self, payments):
+        # Get all payments for completed orders
+        quarterly_stats = {}
+
+        for payment in payments.order_by('created_at'):
+            created_date = payment.created_at
+            year = created_date.year
+            quarter = (created_date.month - 1) // 3 + 1
+            quarter_key = f"{year}-Q{quarter}"
+
+            if quarter_key not in quarterly_stats:
+                quarterly_stats[quarter_key] = {
+                    'period': f"Q{quarter} {year}",
+                    'year': year,
+                    'quarter': quarter,
+                    'total_revenue': Decimal('0.00'),
+                    'total_orders': 0,
+                    'avg_order_value': Decimal('0.00')
+                }
+
+            quarterly_stats[quarter_key]['total_revenue'] += payment.amount
+            quarterly_stats[quarter_key]['total_orders'] += 1
+
+        # Calculate average order values
+        for stats in quarterly_stats.values():
+            if stats['total_orders'] > 0:
+                stats['avg_order_value'] = stats['total_revenue'] / stats['total_orders']
+
+        return list(quarterly_stats.values())
+
+    def get_yearly_stats(self, payments):
+        # Get all payments for completed orders
+        yearly_stats = {}
+
+        for payment in payments.order_by('created_at'):
+            created_date = payment.created_at
+            year = created_date.year
+            year_key = str(year)
+
+            if year_key not in yearly_stats:
+                yearly_stats[year_key] = {
+                    'period': year_key,
+                    'year': year,
+                    'total_revenue': Decimal('0.00'),
+                    'total_orders': 0,
+                    'avg_order_value': Decimal('0.00')
+                }
+
+            yearly_stats[year_key]['total_revenue'] += payment.amount
+            yearly_stats[year_key]['total_orders'] += 1
+
+        # Calculate average order values
+        for stats in yearly_stats.values():
+            if stats['total_orders'] > 0:
+                stats['avg_order_value'] = stats['total_revenue'] / stats['total_orders']
+
+        return list(yearly_stats.values())
+
+class AdminRevenueStatisticsViewSet(viewsets.ViewSet):
+    permission_classes = [IsAdmin]  # Chỉ admin mới truy cập được
+
+    @action(detail=False, methods=['get'], url_path='admin-revenue-stats')
+    def get_admin_revenue_statistics(self, request):
+        # 1. Lấy query parameters
+        period_type = request.query_params.get('period', 'month')  # month, quarter, year
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        # 2. Query cơ bản: tất cả đơn đã thanh toán hoàn tất
+        base_payments = Payment.objects.filter(status='completed').distinct()
+
+        # 3. Lọc theo khoảng thời gian nếu có
+        if start_date and end_date:
+            try:
+                start = datetime.strptime(start_date, '%Y-%m-%d').date()
+                end = datetime.strptime(end_date, '%Y-%m-%d').date()
+                base_payments = base_payments.filter(created_at__date__range=[start, end])
+            except ValueError:
+                return Response({'error': 'Sai định dạng ngày. Dùng YYYY-MM-DD'}, status=400)
+
+        # 4. Tạo thống kê linh hoạt
+        if period_type == 'month':
+            stats = self.get_monthly_stats(base_payments)
+        elif period_type == 'quarter':
+            stats = self.get_quarterly_stats(base_payments)
+        elif period_type == 'year':
+            stats = self.get_yearly_stats(base_payments)
+        else:
+            return Response({'error': 'Giai đoạn không hợp lệ'}, status=400)
+
+        # 5. Thống kê sản phẩm đã bán
+        total_products = OrderDetail.objects.filter(order__payment__in=base_payments).aggregate(
+            total_sold=Sum('quantity'))['total_sold'] or 0
+
+        # 6. Trả dữ liệu
+        return Response({
+            'period': period_type,
+            'total_revenue': sum(item['total_revenue'] for item in stats),
+            'total_orders': sum(item['total_orders'] for item in stats),
+            'total_products_sold': total_products,
+            'stats': stats
+        })
 
 

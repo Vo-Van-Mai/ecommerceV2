@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 
+
+
 import corsheaders.middleware
 import oauth2_provider.contrib.rest_framework
 
@@ -65,8 +67,8 @@ OAUTH2_PROVIDER = {
 }
 
 
-CLIENT_ID = 'otU6JHb3hEnlF9JaRxOsLBOGApEiZ5SYhK22rE9x'
-CLIENT_SECRET = 'vt9Zk6J754JBxgHZFg0BdmrSPhEbcJAhMHaHO7KDojvMdmwgUYOisX5Tt7GKwItbtgbYd28onjwfBkAFSoGdgfJqEhJ4FT2yR3e37bBMNdMzBhKC9AZBy4tWvlLcKWfn'
+CLIENT_ID = 'yrzWbc4i0fxInicARvmxKvFEQMNzIAeTujwdVRas'
+CLIENT_SECRET = 'kvRgdvj9PINFTeNy1vmnVUKlPmzT7loZi2f9AEYoDa4cvdsRe7DQFBEtNLaE8FKaO9EPAUkKtk1Ro0Nf5XjtGEbev1XX57Xp7R9RkZHaW8V5VsxDBavuM1Pwm9k1fXaO'
 
 
 
@@ -188,28 +190,15 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Payment Gateway Settings
-
-# PayPal Settings
-PAYPAL_MODE = 'sandbox'  # sandbox or live
-PAYPAL_CLIENT_ID = 'YOUR_PAYPAL_CLIENT_ID'
-PAYPAL_CLIENT_SECRET = 'YOUR_PAYPAL_CLIENT_SECRET'
-
-# Stripe settings
-STRIPE_PUBLISHABLE_KEY = 'pk_test_your_publishable_key'
-STRIPE_SECRET_KEY = 'sk_test_your_secret_key'
-STRIPE_WEBHOOK_SECRET = 'whsec_your_webhook_secret'
-
 # Momo settings
-MOMO_PARTNER_CODE = 'your_partner_code'
-MOMO_ACCESS_KEY = 'your_access_key'
-MOMO_SECRET_KEY = 'your_secret_key'
-MOMO_API_ENDPOINT = 'https://test-payment.momo.vn/v2/gateway'
-MOMO_NOTIFY_URL = 'https://your-domain.com/api/payment/webhooks/momo/'
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-# ZaloPay settings
-ZALOPAY_APP_ID = 'your_app_id'
-ZALOPAY_KEY1 = 'your_key1'
-ZALOPAY_KEY2 = 'your_key2'
-ZALOPAY_API_ENDPOINT = 'https://sandbox.zalopay.com.vn/v001/tpe/createorder'
-
+# MoMo Credentials
+MOMO_PARTNER_CODE = os.getenv("MOMO_PARTNER_CODE")
+MOMO_ACCESS_KEY = os.getenv("MOMO_ACCESS_KEY")
+MOMO_SECRET_KEY = os.getenv("MOMO_SECRET_KEY")
+MOMO_ENDPOINT = os.getenv("MOMO_ENDPOINT")
+MOMO_REDIRECT_URL = os.getenv("MOMO_REDIRECT_URL")
+MOMO_IPN_URL = os.getenv("MOMO_IPN_URL")

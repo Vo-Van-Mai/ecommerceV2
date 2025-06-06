@@ -3,13 +3,15 @@ from itertools import product
 from django.utils.translation.trans_null import activate
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer, SerializerMethodField
-from .models import Category, Product, Comment, User, Shop, Like, Cart, CartItem, Payment, ImageProduct, Order, OrderDetail
+from .models import Category, Product, Comment, User, Shop, Like, Cart, CartItem, Payment, ImageProduct, Order, \
+    OrderDetail
+
 
 class CategorySerializer(ModelSerializer):
-
     class Meta:
         model = Category
         fields = ['id', 'name', 'description', 'created_date']
+
 
 class CategoryDetailSerializer(CategorySerializer):
     def to_representation(self, instance):
@@ -23,6 +25,7 @@ class CategoryDetailSerializer(CategorySerializer):
             for product in instance.products.filter(active=True)
         ]
         return data
+
     class Meta:
         model = CategorySerializer.Meta.model
         fields = CategorySerializer.Meta.fields + ['products']
@@ -33,19 +36,22 @@ class ImageProductSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         data['pathImg'] = instance.pathImg.url if instance.pathImg else None
         return data
+
     class Meta:
         model = ImageProduct
         fields = ['id', 'pathImg']
 
+
 class ProductSerializer(ModelSerializer):
-    images = ImageProductSerializer(source='imageproduct',many=True, read_only=True)
+    images = ImageProductSerializer(source='imageproduct', many=True, read_only=True)
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'description', 'price', 'quantity', 'product_status', 'shop', 'category','images']
+        fields = ['id', 'name', 'description', 'price', 'quantity', 'product_status', 'shop', 'category', 'images']
         extra_kwargs = {
             'shop': {'read_only': True}
         }
+
     def create(self, validated_data):
         request = self.context.get('request')  # lấy request từ context
         product = Product.objects.create(**validated_data)
@@ -92,7 +98,6 @@ class ProductDetailSerializer(ProductSerializer):
         if request and request.user.is_authenticated:
             return product.favourite_set.filter(user=request.user, active=True).exists()
 
-
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['images'] = ImageProductSerializer(instance.imageproduct.all(), many=True).data
@@ -122,10 +127,11 @@ class CommentSerializer(ModelSerializer):
             'avatar': comment.user.avatar.url if comment.user.avatar else None
         }
         return req
+
     class Meta:
         model = Comment
-        fields = ["id","content", "user", "parent", "created_date", "updated_date", "product"]
-        extra_kwargs={
+        fields = ["id", "content", "user", "parent", "created_date", "updated_date", "product"]
+        extra_kwargs = {
             'product': {
                 'write_only': True
             }
@@ -154,17 +160,18 @@ class UserSerializer(ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id','first_name', 'last_name', 'email', 'username', 'password', 'gender' ,'phone', 'avatar', 'role', 'created_date', 'updated_date', 'is_verified_seller']
+        fields = ['id', 'first_name', 'last_name', 'email', 'username', 'password', 'gender', 'phone', 'avatar', 'role',
+                  'created_date', 'updated_date', 'is_verified_seller']
         read_only_fields = ['id', 'is_verified_user']
-        extra_kwargs ={
-            'password' : {
+        extra_kwargs = {
+            'password': {
                 "write_only": True
             },
             'avatar': {
-               'error_messages': {
-                   'required' : 'vui lòng upload avatar (ảnh đại diện) của bạn!!'
-               }
-           }
+                'error_messages': {
+                    'required': 'vui lòng upload avatar (ảnh đại diện) của bạn!!'
+                }
+            }
         }
 
 
@@ -179,32 +186,29 @@ class ShopSerializer(ModelSerializer):
     class Meta:
         model = Shop
         fields = ['id', 'name', 'user', 'avatar']
-        extra_kwargs={
+        extra_kwargs = {
             'user': {'read_only': True}
         }
 
 
 class PaymentSerializer(serializers.ModelSerializer):
-    # Fields for payment initialization
-    order_id = serializers.IntegerField(write_only=True, required=False)
-    return_url = serializers.URLField(write_only=True, required=False)
-
-    # Fields for payment verification
-    payment_data = serializers.JSONField(write_only=True, required=False)
+    order_details = serializers.SerializerMethodField()
 
     class Meta:
         model = Payment
-        fields = ['id', 'order', 'amount', 'method', 'status',
-                  'transaction_id', 'created_date', 'updated_date',
-                  'order_id', 'return_url', 'payment_data']
-        read_only_fields = ['id', 'transaction_id', 'status', 'created_date', 'updated_date']
+        fields = ['id', 'order', 'status',
+                  'transaction_id', 'order_id', 'created_date', 'updated_date', 'order_details']
+        read_only_fields = ['id', 'transaction_id', 'status', 'created_date', 'updated_date', 'order_details']
 
-
+    def get_order_details(self, obj):
+        # Lấy tất cả các OrderDetail liên quan đến đơn hàng
+        order_details = obj.order.orderdetail_set.all()
+        return OrderDetailSerializer(order_details, many=True).data
 
 
 class CartItemSerializer(ModelSerializer):
 
-    def to_representation(self, cart_item ):
+    def to_representation(self, cart_item):
         rep = super().to_representation(cart_item)
         product = cart_item.product
         first_image = product.imageproduct.first()
@@ -212,14 +216,15 @@ class CartItemSerializer(ModelSerializer):
         rep['product'] = {
             'id': cart_item.product.id,
             'name': cart_item.product.name,
-            'image' : first_image.pathImg.url if first_image and first_image.pathImg else None,
+            'image': first_image.pathImg.url if first_image and first_image.pathImg else None,
             'price': cart_item.product.price
         }
-        rep['shop']={
+        rep['shop'] = {
             'id': shop.id,
             'name': shop.name
         }
         return rep
+
     class Meta:
         model = CartItem
         fields = '__all__'
@@ -229,8 +234,10 @@ class CartItemSerializer(ModelSerializer):
             }
         }
 
+
 class CartSerializer(ModelSerializer):
     items = CartItemSerializer(many=True, read_only=True)
+
     class Meta:
         model = Cart
         fields = '__all__'
@@ -247,7 +254,7 @@ class OrderSerializer(ModelSerializer):
             "phone": instance.user.phone,
             "email": instance.user.email
         }
-        data['shop'] ={
+        data['shop'] = {
             "id": instance.shop.id,
             "name": instance.shop.name
         }
@@ -277,13 +284,14 @@ class OrderDetailSerializer(ModelSerializer):
         }
 
         data["shop"] = {
-        "name": instance.order.shop.name
+            "name": instance.order.shop.name
         }
         return data
 
     class Meta:
         model = OrderDetail
         fields = "__all__"
+
 
 class ProductComparisonSerializer(serializers.ModelSerializer):
     shop = ShopSerializer(read_only=True)

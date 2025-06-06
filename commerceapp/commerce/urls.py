@@ -21,8 +21,5 @@ r.register('admin-statistics', views.RevenueStatisticsViewSet, basename='admin-r
 
 # URL patterns for payment API
 urlpatterns = [
-    path('', include(r.urls)),
-    path('webhooks/stripe/', webhooks.stripe_webhook, name='stripe-webhook'),
-    path('webhooks/momo/', webhooks.momo_webhook, name='momo-webhook'),
-    path('webhooks/zalopay/', webhooks.zalopay_webhook, name='zalopay-webhook')
+    path('', include(r.urls))
 ]

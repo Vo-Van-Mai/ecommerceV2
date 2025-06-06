@@ -1,43 +1,36 @@
-{% extends 'admin/base_site.html' %}
+{% extends "admin/base_site.html" %}
+{% block title %}Thống kê sản phẩm theo danh mục{% endblock %}
+
 {% block content %}
-<h1>THỐNG KÊ SẢN PHẨM</h1>
-<ul>
-    {% for s in stats %}
-    <li>{{s.id}} - {{s.name}} - {{s.c}}</li>
-    {% endfor %}
-</ul>
-<div style="width: 40%;">
-    <canvas id="myChart"></canvas>
-</div>
+<h1>Thống kê sản phẩm</h1>
+<canvas id="productChart" width="600" height="300"></canvas>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    let data = [];
-    let labels = [];
-    {% for s in stats %}
-        data.push({{ s.c }})
-        labels.push('{{ s.name }}')
-    {% endfor %}
-
-    window.onload = function(){
-        const ctx = document.getElementById('myChart');
-        new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: labels,
+  const ctx = document.getElementById('productChart').getContext('2d');
+  const chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+          labels: {{ labels|safe }},
           datasets: [{
-            label: '# số lượng',
-            data: data,
-            borderWidth: 1
+              label: 'Số sản phẩm',
+              data: {{ data|safe }},
+              backgroundColor: 'rgba(54, 162, 235, 0.6)',
+              borderColor: 'rgba(54, 162, 235, 1)',
+              borderWidth: 1
           }]
-        },
-        options: {
+      },
+      options: {
+          responsive: true,
           scales: {
-            y: {
-              beginAtZero: true
-            }
+              y: {
+                  beginAtZero: true,
+                  ticks: {
+                      stepSize: 1
+                  }
+              }
           }
-        }
-      });
-    }
+      }
+  });
 </script>
 {% endblock %}

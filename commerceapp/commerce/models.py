@@ -138,22 +138,22 @@ class OrderDetail(BaseModel):
 
 class Payment(BaseModel):
     payment_method_choices = [
-        ('cod', 'Cash On Delivery'),
-        ('momo', 'MoMo')
+        (0, 'Cash On Delivery'),
+        (1, 'MoMo')
     ]
 
     payment_status_choices = [
-        ('pending', 'Pending'),
-        ('completed', 'Completed'),
-        ('failed', 'Failed'),
-        ('refunded', 'Refunded'),
+        (0, 'Pending'),
+        (1, 'Completed'),
+        (2, 'Failed')
     ]
 
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='payment')
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
     method = models.CharField(max_length=20, choices=payment_method_choices)
-    status = models.CharField(max_length=20, choices=payment_status_choices, default='pending')
+    status = models.CharField(max_length=20, choices=payment_status_choices, default=0)
     transaction_id = models.CharField(max_length=255, blank=True, null=True)
+    request_id = models.CharField(max_length=100, blank=True, null=True)  # MoMo requestId
+    created_date = models.DateTimeField(default=timezone.now())
 
     class Meta:
         verbose_name = _('Payment')

@@ -197,14 +197,16 @@ class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = ['id', 'order', 'status',
-                  'transaction_id', 'order_id', 'created_date', 'updated_date', 'order_details']
+                  'transaction_id', 'created_date', 'updated_date', 'order_details']
         read_only_fields = ['id', 'transaction_id', 'status', 'created_date', 'updated_date', 'order_details']
 
     def get_order_details(self, obj):
-        # Lấy tất cả các OrderDetail liên quan đến đơn hàng
-        order_details = obj.order.orderdetail_set.all()
+        order_details = obj.order.order_details.all()
         return OrderDetailSerializer(order_details, many=True).data
 
+    @classmethod
+    def prefetch_queryset(cls, queryset):
+        return queryset.prefetch_related('order__order_details')
 
 class CartItemSerializer(ModelSerializer):
 

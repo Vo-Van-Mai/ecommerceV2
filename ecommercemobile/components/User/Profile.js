@@ -3,7 +3,7 @@ import MyUserReducer from "../../Reducer/MyUserReducer";
 import { MyDispatchContext, MyUserContext } from "../../configs/Context";
 import { Button } from "react-native-paper";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { Image, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import MyStyles from "../../style/MyStyles";
 import Styles from "./Styles";
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -11,13 +11,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { authAPI, endpoints } from "../../configs/Apis";
 import { MyCartContext, MySetCartContext } from "../../configs/CartContext";
 import { MyOrderContext, MySetOrderContext } from "../../configs/OrderContext";
+import { MySetShopContext, MyShopContext } from "../../configs/ShopContext";
 
 const Profile = () => {
+    const shop = useContext(MyShopContext);
+    const setShop = useContext(MySetShopContext);
     const user = useContext(MyUserContext);
     const dispatch = useContext(MyDispatchContext);
-    const [token, setToken] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [shop, setShop] = useState({});
     const nav = useNavigation();
     const setCart = useContext(MySetCartContext);
     const {order} = useContext(MyOrderContext);
@@ -27,20 +28,22 @@ const Profile = () => {
     
     
 
-    const getToken = async () => {
-        const storedToken = await AsyncStorage.getItem("token");
-        setToken(storedToken);
-        console.log("token ở đây", storedToken);
-    };
-    
     const loadShop = async () => {
         try {
             setLoading(true);
-            let res = await authAPI(token).get(endpoints['myShop']);
-            console.log('Shop data:', res.data); // Kiểm tra dữ liệu trả về
-            setShop(res.data);
+            if (user.role == "seller" && user.is_verified_seller == 1) {
+                let res = await authAPI(user.token).get(endpoints['myShop']);
+                console.log('Shop data:', res.data); // Kiểm tra dữ liệu trả về
+                setShop(res.data);
+
+            }
+            else if (user.role == "buyer") {
+                setShop({});
+            }
         } catch (error) {
-            console.error('Error loading shop:', error); // Log lỗi nếu API thất bại
+            handleError(error);
+            console.log('Error loading shop:', error); 
+            
         } finally {
             setLoading(false); // Đảm bảo tắt loading
         }
@@ -49,7 +52,7 @@ const Profile = () => {
     // Hàm để lấy đơn hàng từ một URL cụ thể
     const fetchOrdersFromUrl = async (url) => {
         try {
-            const res = await authAPI(token).get(url);
+            const res = await authAPI(user.token).get(url);
             return res.data;
         } catch (ex) {
             console.error("Lỗi khi lấy đơn hàng:", ex);
@@ -92,7 +95,7 @@ const Profile = () => {
                 console.log("Đang load đơn hàng của shop");
             }
 
-            const Orderres = await authAPI(token).get(initialEndpoint);
+            const Orderres = await authAPI(user.token).get(initialEndpoint);
             
             if (Orderres) {
                 const data = Orderres.data;
@@ -109,47 +112,43 @@ const Profile = () => {
                 setOrderQuantity(totalQuantityMap);
             }
         } catch (ex) {
-            console.error("Lỗi khi tải đơn hàng:", ex);
-            setOrder({
-                type: "set_order",
-                payload: null
-            });
+            handleError(ex);
+            // console.log("Lỗi khi tải đơn hàng:", ex);
         }
-    };
-    
-
-    
-    // Lấy token
-    useEffect(() => {
-        getToken();
-    }, []);
-
-
-    const logout = () => {
-        dispatch({
-            "type": "logout"
-        });
-        setCart({});
-        nav.navigate("Trang chủ");
-        setOrder({
-            type: "reset_order"
-        })
     };
 
    
 
     useFocusEffect(
         useCallback(() => {
-          if (token && user?.role) {
-            console.log(`Loading data for ${user.role}`);
-            if (user.role === "seller") {
+          if (!user.token) return;
+      
+          if (user.role === "buyer") {
+            loadOrder();
+          } else if (user.role === "seller") {
+            // Chỉ load shop nếu chưa có
+            if (!shop?.shop?.id) {
               loadShop();
             }
             loadOrder();
           }
-        }, [token, user?.role])
+        }, [user.token, user?.role, shop?.id])
       );
       
+      
+      const handleError = (error) => {
+        const status = error?.response?.status;
+        // console.log("status:", status);
+        if ([401, 403, 404].includes(status)) {
+            setShop({});
+            Alert.alert("Lỗi", "Bạn chưa có cửa hàng", [
+                {
+                    text: "OK",
+                    onPress: () => nav.navigate("Tạo cửa hàng")
+                }
+            ]);
+        }
+      }
 
  
 
@@ -220,8 +219,9 @@ const Profile = () => {
                 </View>}
 
                 {/* Giao diện của seller */}
-                {user.role === "seller" && <View>
+                {user.is_verified_seller == 1 && <View>
                 <View>
+                    
                     <View style={Styles.border}>
 
                         <Text style={{fontWeight: "bold"}}>Đơn hàng của bạn</Text>
@@ -260,47 +260,13 @@ const Profile = () => {
                         <Text style={{fontWeight: "bold"}}> Xem tất cả đơn hàng</Text>
                     </TouchableOpacity>
 
-                <View style={[Styles.border]}>
-                    <Text style={{fontWeight: "bold"}}>Danh sách dịch vụ tiện ích</Text>
-
-                    <TouchableOpacity onPress={() => nav.navigate("Quản lý cửa hàng", {screen: "ShopProduct", params: {shopId: shop?.id}}) }>
-                        <View style={Styles.item}>
-                            <View style={Styles.borderIcon}>
-                                <Icon name="shopping-cart" size={30} color={"gray"} />
-                            </View>
-                            <Text style={{fontSize: 18}}>Danh sách sản phẩm</Text>
-                        </View>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={() => nav.navigate("Quản lý cửa hàng", {screen: "AddProduct", params: {shopId: shop?.id, token: token}})}>
-                        <View style={Styles.item}>
-                            <View style={Styles.borderIcon}>
-                                <Icon name="cart-plus" size={30} color={"gray"} />
-                            </View>
-                            <Text style={{fontSize: 18}}>Thêm sản phẩm</Text>
-                        </View>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity>
-                        <View style={Styles.item}>
-                            <View style={Styles.borderIcon}>
-                                <Icon name="bar-chart-o" size={23} color={"gray"} />
-                            </View>
-                            <Text style={{fontSize: 18}}>Thống kê doanh thu</Text>
-                        </View>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity>
-                        <View style={Styles.item}>
-                            <View style={Styles.borderIcon}>
-                                <Icon name="money" size={30} color={"gray"} />
-                            </View>
-                            <Text style={{fontSize: 18}}>Đơn hàng</Text>
-                        </View>
-                    </TouchableOpacity>
-                </View>
+                
                 </View>
                 }
+                {(user.is_verified_seller == 0  && user.role == "seller")&& <View>
+                    <Text style={{fontSize: 20, fontWeight: "bold", textAlign: "center"}}>Bạn chưa được xác thực làm người bán</Text>
+                    <Text style={{fontSize: 16, fontWeight: "bold", textAlign: "center"}}>Vui lòng đợi xác thực từ hệ thống!</Text>
+                </View>}
 
                 <View style={[Styles.border, {alignItems:"flex-start"}]}>
                     <Text style={{fontWeight: "bold"}}>Hổ trợ</Text>
@@ -317,9 +283,7 @@ const Profile = () => {
                 </View>
                 
             </ScrollView>
-            <Button style={Styles.btnLogout} mode="contained" onPress={logout}> 
-                Đăng xuất
-            </Button>
+            
         </SafeAreaView>
         
     );

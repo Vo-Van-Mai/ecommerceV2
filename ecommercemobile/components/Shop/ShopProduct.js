@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from "react";
-import { FlatList, Text, View } from "react-native";
+import { Dimensions, FlatList, Text, View } from "react-native";
 import { MyDispatchContext, MyUserContext } from "../../configs/Context";
 import Styles from "./Styles";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -7,6 +7,10 @@ import Apis, { authAPI, endpoints } from "../../configs/Apis";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ProductCard from "../Home/ProductCard";
 import { ActivityIndicator } from "react-native-paper";
+import { AntDesign, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width, height } = Dimensions.get('window');
 
 const ShopProduct = ({route}) => {
     const shopId = route?.params?.shopId;
@@ -66,9 +70,9 @@ const ShopProduct = ({route}) => {
             data={products}
             keyExtractor={(item) => item.id.toString()}
             renderItem={({ item }) => (
-                // <TouchableOpacity onPress={() => nav.navigate("Product", { productId: item.id })}>
+                <TouchableOpacity onPress={() => nav.navigate("Product", { productId: item.id })}>
                 <ProductCard item={item} />
-                // </TouchableOpacity>
+                </TouchableOpacity>
             )}
             numColumns={2}
             columnWrapperStyle={{ justifyContent: 'space-between' }}

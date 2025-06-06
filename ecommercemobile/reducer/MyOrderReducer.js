@@ -55,6 +55,16 @@ const MyOrderReducer = (state, action) => {
                     )
                 }
             };
+        case "confirm_order_shipping":
+            return {
+                ...state,
+                orders: {
+                    ...state.orders,
+                    results: state.orders.results.map(order =>
+                        order.id === action.payload.id ? action.payload : order
+                    )
+                }
+            }
 
         default:
             return state;

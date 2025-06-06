@@ -68,6 +68,9 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAP
             return [permission.IsSeller()]
         return [AllowAny()]
 
+    def permission_denied(self, request, message=None, code=None):
+        raise PermissionDenied(detail="Bạn chưa đăng nhập vui lòng đăng nhập để tiếp tục.")
+
 
     def get_queryset(self):
         query = self.queryset
@@ -132,39 +135,6 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAP
             c = CommentSerializer(page, many=True)
             return p.get_paginated_response(c.data)
 
-    @action(methods=['get','post'], detail=True, url_path="rating")
-    def get_rating(self, request, pk):
-        product = self.get_object()
-
-        if request.method.__eq__('POST'):
-            star = request.data.get('star')
-            if not star:
-                return Response({'error': 'Thiếu dữ liệu đánh giá (star)'}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Kiểm tra đánh giá đã tồn tại chưa
-            rating, created = Like.objects.get_or_create(
-                user=request.user,
-                product=product,
-                defaults={'star': star}
-            )
-
-            if not created:
-                # Nếu đã tồn tại thì cập nhật số sao
-                rating.star = star
-                rating.save()
-                return Response(LikeSerializer(rating).data, status=status.HTTP_200_OK)
-
-            return Response(LikeSerializer(rating).data, status=status.HTTP_201_CREATED)
-
-        else:
-            star = product.like_set.select_related('user').filter(active=True).order_by('-id')
-            p = paginator.ProductPaginator()
-            page = p.paginate_queryset(star, self.request)
-            if page:
-                s = LikeSerializer(page, many=True)
-                return p.get_paginated_response(s.data)
-            else:
-                return Response(LikeSerializer(star, many=True).data, status=status.HTTP_200_OK)
 
     @action(methods=['post'], detail=True, url_path='like')
     def like(self, request, pk):
@@ -174,6 +144,18 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAP
         li.save()
 
         return Response(ProductDetailSerializer(self.get_object(), context={'request': request}).data, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=True, url_path='rating')
+    def get_rating(self, request, pk):
+        product = self.get_object()
+        star = product.like_set.select_related('user').filter(active=True).order_by('-id')
+        p = paginator.ProductPaginator()
+        page = p.paginate_queryset(star, self.request)
+        if page:
+            s = LikeSerializer(page, many=True)
+            return p.get_paginated_response(s.data)
+        else:
+            return Response(LikeSerializer(star, many=True).data, status=status.HTTP_200_OK)
 
 class UserViewSet(viewsets.ViewSet):
     # queryset = User.objects.filter(is_active=True)
@@ -324,10 +306,9 @@ class ShopViewSet(viewsets.ViewSet):
         return Response(ShopSerializer(shop).data, status=status.HTTP_200_OK)
 
     def create(self, request):
-        if not IsSeller().has_permission(request, self):
-            if request.user.role != "seller":
-                raise PermissionDenied("Bạn không phải người bán nên không thể tạo cửa hàng!")
-            raise PermissionDenied("Bạn chưa có quyền tạo shop!")
+
+        if request.user.role != "seller":
+            raise PermissionDenied("Bạn không phải người bán nên không thể tạo cửa hàng!")
         if Shop.objects.filter(user_id = request.user).exists():
             raise PermissionDenied("Bạn đã có cửa hàng!")
         serializer = ShopSerializer(data=request.data, context={'request': request})
@@ -405,6 +386,10 @@ class ShopViewSet(viewsets.ViewSet):
     # Lấy shop của ngưi đăng nhập
     @action(detail=False, methods=['get'], url_path='my-shop')
     def my_shop(self, request):
+        if not request.user or not request.user.is_authenticated:
+            raise PermissionDenied({"chi tiết": "Bạn chưa đăng nhập."})
+        IsSeller().has_permission(request, self)
+
         try:
             shop = Shop.objects.get(user=request.user)
             serializer = ShopSerializer(shop, context={'request': request})
@@ -656,7 +641,7 @@ class OrderViewSet(viewsets.ViewSet):
             return Response({"error": "Bạn phải gửi danh sách sản phẩm"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Nhóm sản phẩm theo shop_id
-        shop_products = {}  # {shop_id: [product_info, ...]}
+        shop_products = {}
         for item in items:
             product_id = item.get("product_id")
             quantity = item.get("quantity", 1)
@@ -739,6 +724,21 @@ class OrderViewSet(viewsets.ViewSet):
             return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
         return Response({"Chi tiết": "Không thể cập nhật đơn hàng"}, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(methods=['patch'], detail=True, url_path="confirm-shipping")
+    def confirm_shipping(self, request, pk):
+        try:
+            order = Order.objects.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({"Chi tiết": "Không tìm thấy đơn hàng!"})
+        shop = order.shop
+        IsOwnerShop().has_object_permission(request, self, shop)
+
+        if order.status == order.OrderStatus.CONFIRMED:
+            order.status = order.OrderStatus.SHIPPED
+            order.save()
+            return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
+        return Response({"Chi tiết": "Không thể cập nhật đơn hàng"}, status=status.HTTP_400_BAD_REQUEST)
+
     @action(methods=['get'], url_path="get-order-shop", detail=False)
     def get_order_shop(self, request):
         # Kiểm tra quyền người bán
@@ -801,24 +801,74 @@ class OrderViewSet(viewsets.ViewSet):
             return Response(OrderSerializer(orders, many=True).data, status=status.HTTP_200_OK)
 
 
-class OrderDetailViewSet(viewsets.ViewSet, generics.ListAPIView):
-    serializer_class = OrderDetailSerializer
-    permission_classes = [permission.IsOwnerOrder]
+class OrderDetailViewSet(viewsets.ViewSet):
 
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
-            return OrderDetail.objects.none()
-        return OrderDetail.objects.filter(active=True, order__user=self.request.user)
+    def retrieve(self, request, *args, **kwargs):
+        user = request.user
+        if not request.user or not request.user.is_authenticated:
+            raise PermissionDenied({"chi tiết": "Bạn chưa đăng nhập."})
 
-    def retrieve(self, request, pk=None):
         try:
-            order = Order.objects.get(pk=pk, user=request.user)
+            order = Order.objects.get(pk=kwargs['pk'])
         except Order.DoesNotExist:
             return Response({"Chi tiết": "Không tìm thấy đơn hàng!"}, status=status.HTTP_404_NOT_FOUND)
+
+        if user.role=="buyer":
+            permission.IsOwnerOrder().has_object_permission(request, self, order)
+        elif user.role=="seller":
+            permission.IsShopOrder().has_object_permission(request, self, order)
 
         details = OrderDetail.objects.select_related('product', 'order__shop', 'order').filter(order=order)
         serializer = OrderDetailSerializer(details, many=True)
         return Response(serializer.data)
+
+    @action(methods=['post'], detail=True, url_path="rating")
+    def post_rating(self, request, pk):
+        try:
+            orderDetail = OrderDetail.objects.get(pk=pk)
+        except OrderDetail.DoesNotExist:
+            return Response({"Chi tiết": "Không tìm thấy đơn hàng này!"}, status=status.HTTP_404_NOT_FOUND)
+
+        order = Order.objects.get(pk=orderDetail.order_id)
+        permission.IsOwnerOrder().has_object_permission(request, self, order)
+
+        product = Product.objects.get(pk=orderDetail.product_id)
+
+        star = request.data.get('star')
+        if not star:
+            return Response({'Lỗi': 'Thiếu dữ liệu đánh giá (star)'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Kiểm tra xem star có hợp lệ không
+        try:
+            star = int(star)
+            if star < 1 or star > 5:
+                return Response(
+                    {'error': 'Số sao phải từ 1 đến 5.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except (TypeError, ValueError):
+            return Response(
+                {'error': 'Số sao phải là số nguyên.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Kiểm tra đánh giá đã tồn tại chưa
+        rating, created = Like.objects.get_or_create(
+            user=request.user,
+            product=product,
+            defaults={'star': star}
+        )
+
+        if not created:
+            # Nếu đã tồn tại thì cập nhật số sao
+            rating.star = star
+            rating.save()
+            return Response(LikeSerializer(rating).data, status=status.HTTP_200_OK)
+
+        return Response(LikeSerializer(rating).data, status=status.HTTP_201_CREATED)
+
+
+
 
 class ProductComparisonViewSet(viewsets.ViewSet):
     """
@@ -955,8 +1005,10 @@ class ProductComparisonViewSet(viewsets.ViewSet):
         })
 
 
-class RevenueStatisticsViewSet(viewsets.ViewSet, generics.ListAPIView):
+class RevenueStatisticsViewSet(viewsets.ViewSet):
+
     permission_classes = [IsAuthenticated]
+    serializer_class= RevenueStatisticsSerializer
 
     @action(detail=True, methods=['get'], url_path='revenue-stats')
     def get_revenue_statistics(self, request, pk=None):

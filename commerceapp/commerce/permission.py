@@ -84,3 +84,9 @@ class IsOwnerOrder(IsAuthenticated):
             raise PermissionDenied("Bạn không phải là chủ sở hữu của đơn hàng này!")
         return True
 
+class IsShopOrder(IsAuthenticated):
+    def has_object_permission(self, request, view, order):
+        if request.user != order.shop.user:
+            raise PermissionDenied({"Bạn không phải là chủ shop của đơn hàng này"})
+        return True
+

@@ -36,6 +36,10 @@ export const endpoints  = {
     'orderOfShop': '/orders/get-order-shop/',
     'orderDetail': (orderId) => `/orderdetail/${orderId}`,
     'orderVerify': (orderId) => `/orders/${orderId}/confirm/`,
+    'orderVrifyShipping': (orderId) => `/orders/${orderId}/confirm-shipping/`,
+
+    //staff
+    "createStaff": "/users/register-staff/",
 
 };
 

@@ -138,9 +138,11 @@ export default StyleSheet.create({
   btnLogout: {
     position: "absolute",
     top: screenHeight*0.77,
-    left: 0,
+    left: "10%",
     right: 0,
     height: 45,
+    width: "80%",
+    
   },
   countOrder:{
     position: 'absolute',

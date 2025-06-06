@@ -1,7 +1,7 @@
 from itertools import product
 
 from django.utils.translation.trans_null import activate
-from rest_framework import serializers
+from rest_framework import serializers, validators
 from rest_framework.serializers import ModelSerializer, SerializerMethodField
 from .models import Category, Product, Comment, User, Shop, Like, Cart, CartItem, Payment, ImageProduct, Order, OrderDetail
 
@@ -79,9 +79,30 @@ class ProductSerializer(ModelSerializer):
 
 
 class LikeSerializer(ModelSerializer):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['user']={
+            'id': instance.user.id,
+            'name': instance.user.username
+        }
+        data['product']={
+            'id': instance.product.id,
+            'name': instance.product.name,
+            'shop': instance.product.shop_id
+        }
+        return data
     class Meta:
         model = Like
-        fields = ['id', 'star']
+        fields = ['id', 'star', 'product', 'user']
+        extra_kwargs = {
+            'star': {
+                'error_messages': {
+                    'min_value': 'Số sao phải từ 1 trở lên.',
+                    'max_value': 'Số sao tối đa là 5.'
+                }
+            }
+        }
+
 
 
 class ProductDetailSerializer(ProductSerializer):
@@ -164,7 +185,17 @@ class UserSerializer(ModelSerializer):
                'error_messages': {
                    'required' : 'vui lòng upload avatar (ảnh đại diện) của bạn!!'
                }
-           }
+           },
+            'email': {
+                'validators': [validators.UniqueValidator(queryset=User.objects.all(), message="Email đã được sử dụng.")]
+            },
+            'username': {
+                'validators': [validators.UniqueValidator(queryset=User.objects.all(), message="Tên đăng nhập đã được sử dụng.")]
+            },
+            'phone': {
+                'validators': [validators.UniqueValidator(queryset=User.objects.all(), message="Số điện thoại đã được sử dụng.")]
+            }
+
         }
 
 

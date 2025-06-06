@@ -179,6 +179,7 @@ class Comment(Review):
     def __str__(self):
         return self.content
 
+# Rating ( do đặt nhầm thành like like => favourite)
 class Like(Review):
     star = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
 

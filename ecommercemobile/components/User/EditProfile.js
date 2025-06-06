@@ -131,9 +131,9 @@ const EditProfile = () =>{
     }
 
     return(
-        <SafeAreaView style={[Styles.m, Styles.container]}>
+        <View style={[Styles.m, Styles.container, {marginRight: 10,}]}>
             <Text style={Styles.header}>Cập nhật thông tin</Text>
-            <ScrollView >
+            <ScrollView style={{padding: 20}}>
 
                 <TextInput label="Tên" value={newUser.first_name} onChangeText={t => setState(t, "first_name")} style={[Styles.m, Styles.input]} />
                 <TextInput label="Họ và tên đệm" value={newUser.last_name} onChangeText={t => setState(t, "last_name")} style={[Styles.m, Styles.input]} />
@@ -153,21 +153,32 @@ const EditProfile = () =>{
                     </View>
                 </RadioButton.Group>
 
-                {/* Avatar */}
-                <TouchableOpacity onPress={picker}>
-                    <Text style={Styles.m}>Chọn ảnh đại diện</Text>
-                </TouchableOpacity>
-                {newUser.avatar && <Image source={{ uri: newUser.avatar.uri }} style={Styles.avatar} />}
+                <View style={{flexDirection: "row", justifyContent: "space-between", alignItems: "center"}}>
+
+                    {/* Avatar */}
+                    <TouchableOpacity onPress={picker} style={{width: "40%"}}>
+                        <Text style={[Styles.m, {color: "blue", fontWeight: "bold"}]}>Chọn ảnh đại diện</Text>
+                    </TouchableOpacity>
+                {newUser.avatar && <Image source={{ uri: newUser.avatar.uri }} style={{width: "60%", height: 150, borderRadius: 20, borderWidth: 2, borderColor: "gold"}} />}
+                </View>
+
 
                 {/* Thông báo lỗi */}
                 {msg !== "" && <Text style={{ color: "red" }}>{msg}</Text>}
 
-                {/* Đăng ký */}
-                <Button disabled={loading} loading={loading}  mode="contained" onPress={updateUser} style={Styles.m}>
+                
+            </ScrollView>
+            <View style={{flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 20}}>
+                    {/* Đăng ký */}
+                <Button disabled={loading} loading={loading}  mode="contained" onPress={() => nav.navigate("Chính", {screen: "Hồ sơ"})} 
+                style={[Styles.m, {width: "50%", backgroundColor: "gray"}]}>
+                    Quay lại
+                </Button>
+                <Button disabled={loading} loading={loading}  mode="contained" onPress={updateUser} style={[Styles.m, {width: "50%"}]}>
                     Cập nhật
                 </Button>
-            </ScrollView>
-        </SafeAreaView>
+                </View>
+        </View>
     );
 
 };

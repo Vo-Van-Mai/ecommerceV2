@@ -128,5 +128,30 @@ export default StyleSheet.create({
     },
     orderTotal: {   
         fontSize: 13,
+    },
+    //cancel order style
+    cancelOrder: { paddingVertical: 8,
+        paddingHorizontal: 20,
+        borderRadius: 20,
+        elevation: 2,
+    },
+    //Text cancel order style
+    textCancelOrder: {
+        color: "#c62828",
+        fontWeight: '600',
+        fontSize: 14
+    },
+    // confirm order style
+    confirmOrder: {
+        paddingVertical: 8,
+        paddingHorizontal: 20,
+        borderRadius: 20,
+        elevation: 2,
+    },
+    //Text confirm order style
+    textConfirmOrder: {
+        color: "white",
+        fontWeight: '600',
+        fontSize: 14
     }
 });

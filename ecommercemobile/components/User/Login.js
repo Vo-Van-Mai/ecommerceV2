@@ -9,6 +9,7 @@ import { useContentWidth } from 'react-native-render-html';
 import { MyDispatchContext } from '../../configs/Context';
 import { useNavigation } from '@react-navigation/native';
 import { MySetCartContext } from '../../configs/CartContext';
+import { MySetShopContext } from '../../configs/ShopContext';
 
 const Login = () => {
   const [user, setUser] = useState({});
@@ -17,6 +18,8 @@ const Login = () => {
   const dispatch = useContext(MyDispatchContext);
   const nav = useNavigation();
   const setCart = useContext(MySetCartContext);
+  const [showPassword, setShowPassword] = useState(false);
+  const setShop = useContext(MySetShopContext);
   const setState = (value, field) => {
     setUser({...user, [field]:value} )
   };
@@ -49,38 +52,61 @@ const Login = () => {
           console.log(res.data);
           await AsyncStorage.setItem('token', res.data.access_token);
           let u = await authAPI(res.data.access_token).get(endpoints['current_user']);
-          console.info(u.data);
+          console.info("user:", u.data);
           dispatch({
             "type": "login",
             "payload": {...u.data, token: res.data.access_token}
           });
-
-          // Gọi loadCart ở đây
-          const cartRes = await authAPI(res.data.access_token).get(endpoints['cart']);
-            setCart({
-              type: "set_cart",
-              payload: cartRes.data
-            });
           
+          if (u.data.role == "buyer") {
+            console.log("GỌi loadCart:");
+            // Gọi loadCart 
+            const cartRes = await authAPI(res.data.access_token).get(endpoints['cart']);
+              setCart({
+                type: "set_cart",
+                payload: cartRes.data
+              });
+          }
+          else if (u.data.role == "seller") {
+            console.log("GỌi loadShop:");
+            console.log("res.data.access_token:", res.data.access_token);
+            // Gọi loadShop
+            const url = endpoints['myShop'];
+            console.log("url:", url);
+            const shopRes = await authAPI(res.data.access_token).get(url);
+            setShop({
+              type: "set_shop",
+              payload: shopRes.data
+            });
+            console.log("shopRes:", shopRes.data);
+          }
           nav.navigate('Trang chủ');
-
-        
         } catch (error) {
           // console.error(error);
-          console.log('Error data:', error.response?.data);
+        
           if (error.response) {
             const status = error.response.status;
-            if (status === 400 && error.response.data?.error === "invalid_grant") {
-              setMsg("Tên đăng nhập hoặc mật khẩu không đúng!");
+            const data = error.response.data;
+        
+            if (status === 404) {
+              setMsg("Tài khoản không tồn tại!");
+              setShop({});
             } else if (status === 401) {
               setMsg("Không được phép! Vui lòng kiểm tra thông tin đăng nhập.");
+            } else if (status === 400) {
+              if (data?.error === "invalid_grant") {
+                setMsg("Tên đăng nhập hoặc mật khẩu không đúng!");
+              } else {
+                setMsg("Đăng nhập thất bại! Vui lòng thử lại sau.");
+              }
             } else {
-              setMsg("Đăng nhập thất bại! Vui lòng thử lại sau.");
+              setMsg("Đã xảy ra lỗi! Vui lòng thử lại sau.");
             }
+        
           } else {
             setMsg("Lỗi kết nối! Vui lòng kiểm tra mạng.");
           }
-        } finally {
+        }finally {
           SetLoading(false);
         }
     }
@@ -90,22 +116,27 @@ const Login = () => {
     <SafeAreaView style={Styles.container}>
       <Text style={Styles.header}>Đăng nhập</Text>
       
-      {/* Email Input */}
+      {/* usernname Input */}
       <TextInput
-        style={Styles.input}
+        style={[Styles.input, {width: '94%', marginRight: 10}]}
         placeholder="username"
         value={user.username}
         onChangeText={t => setState(t, 'username')}
       />
 
       {/* Password Input */}
-      <TextInput
-        style={Styles.input}
-        placeholder="Password"
-        value={user.password}
-        onChangeText={t => setState(t, 'password')}
-        secureTextEntry
+      <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%'}}>
+        <TextInput
+          style={[Styles.input, {width: '94%', marginRight: 10}]}
+          placeholder="Password"
+          value={user.password}
+          onChangeText={t => setState(t, 'password')}
+          secureTextEntry={!showPassword}
       />
+        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+          {showPassword ?<Ionicons name="eye-outline" size={24} color="black" /> : <Ionicons name="eye-off-outline" size={24} color="black" />}
+        </TouchableOpacity>
+      </View>
 
       {/* Lỗi đăng nhập */}
       {msg && (
@@ -133,7 +164,7 @@ const Login = () => {
       {/* Create Account */}
       <TouchableOpacity style={{ marginTop: 20 }} onPress={() => nav.navigate("Register")}>
         <Text style={Styles.linkText}>
-          Bạn đã chưa có tài khoản? <Text style={Styles.boldLink} > Tạo ngay</Text>
+          Bạn chưa có tài khoản? <Text style={Styles.boldLink} > Tạo ngay</Text>
         </Text>
       </TouchableOpacity>
 

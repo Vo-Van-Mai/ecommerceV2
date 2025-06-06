@@ -9,6 +9,7 @@ import { formatCurrency } from "../../utils/PriceUtils";
 import { MyUserContext } from "../../configs/Context";
 import OrderDetail from "./OrderDetail";
 import { authAPI, endpoints } from "../../configs/Apis";
+import Styles from "./Styles";
 
 const OrderItem = ({status}) => {
     // console.log("status:", status);
@@ -26,6 +27,7 @@ const OrderItem = ({status}) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [page, setPage] = useState(1);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [confirmOrderShipping, setConfirmOrderShipping] = useState({});
     
     const formatDate = (dateString) => {
         const date = new Date(dateString);
@@ -45,7 +47,7 @@ const OrderItem = ({status}) => {
         }else{
             setShowOrderDetail(true);
             try {
-                // console.log("orderId:", orderId);
+                console.log("orderId:", orderId);
                 setLoadDetail(true);
                 let url = endpoints["orderDetail"](orderId);
                 // console.log("url:", url);
@@ -58,6 +60,7 @@ const OrderItem = ({status}) => {
 
             } catch (error) {
                 if (error.response.status === 404){
+                    console.log("error.response.status:", orderId);
                     console.log("Không tìm thấy trang (page not found):", error);
                 }
                 console.log("error:", error);
@@ -97,27 +100,46 @@ const OrderItem = ({status}) => {
         }
     }
 
-    const handleVerifyOrder = async(orderId) => {
+    const handleVerifyOrder = async(orderId, status) => {
         try {
             setLoadDetail(true);
-            setConfirmOrder(prev => ({ ...prev, [orderId]: true }));
-            let resVerifyOrder = await authAPI(user.token).patch(endpoints["orderVerify"](orderId));
+            if(status === 1){
+                setConfirmOrder(prev => ({ ...prev, [orderId]: true }));
+                let resVerifyOrder = await authAPI(user.token).patch(endpoints["orderVerify"](orderId));
 
-             // Đợi thêm 2s để tạo hiệu ứng
-        await new Promise(resolve => setTimeout(resolve, 2000));
-            console.log("response thông tin đơn hàng:", resVerifyOrder.data);
-            if(resVerifyOrder.status === 200){
-                
-                setOrders({type: "confirm_order", payload: resVerifyOrder.data});
-                Alert.alert("Thành công", "Đơn hàng đã được xác nhận");
-            }
+                // Đợi thêm 2s để tạo hiệu ứng
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                console.log("response thông tin đơn hàng:", resVerifyOrder.data);
+                if(resVerifyOrder.status === 200){
+                    
+                    setOrders({type: "confirm_order", payload: resVerifyOrder.data});
+                    Alert.alert("Thành công", "Đơn hàng đã được xác nhận");
+                    loadOrders(1);
+                }}
+            else if(status === 2){
+                setConfirmOrderShipping(prev => ({ ...prev, [orderId]: true }));
+                let resVerifyOrderShipping = await authAPI(user.token).patch(endpoints["orderVrifyShipping"](orderId));
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                console.log("response thông tin đơn hàng:", resVerifyOrderShipping.data);
+                if(resVerifyOrderShipping.status === 200){
+                    setOrders({type: "confirm_order_shipping", payload: resVerifyOrderShipping.data});
+                    Alert.alert("Thành công", "Đơn hàng đã được xác nhận");
+                    loadOrders(1);
+                }
+            }   
         } catch (error) {
             console.log("error:", error);
         }finally{
             setLoadDetail(false);
-            setConfirmOrder(prev => ({ ...prev, [orderId]: false }));
+            if(status === 1){
+                setConfirmOrder(prev => ({ ...prev, [orderId]: false }));
+            }else if(status === 2){ 
+                setConfirmOrderShipping(prev => ({ ...prev, [orderId]: false }));
+            }
         }
     }
+
+   
 
     const loadOrders = async (pageNum = 1) => {
         try {
@@ -275,7 +297,7 @@ const OrderItem = ({status}) => {
                             <Text style={styles.totalPrice}>{formatCurrency(order.total_price)}</Text>
                             {user.role === "seller" && status==="1" && <TouchableOpacity 
                             //Xác nhận đơn hàng
-                                    onPress={() => handleVerifyOrder(order.id)} 
+                                    onPress={() => handleVerifyOrder(order.id, 1)} 
                                     style={{
                                         backgroundColor: confirmOrder[order.id] ? '#9e9e9e' : '#4CAF50',
                                         paddingVertical: 8,
@@ -285,12 +307,27 @@ const OrderItem = ({status}) => {
                                     }}
                                     disabled={confirmOrder[order.id]}
                                 >
-                                    <Text style={{
-                                        color: "white",
-                                        fontWeight: '600',
-                                        fontSize: 14
-                                    }}>
+                                    <Text style={Styles.textConfirmOrder}>
                                         {confirmOrder[order.id] ? "Đang xử lý..." : "Chốt đơn"}
+                                    </Text>
+                                </TouchableOpacity>}
+
+                                {user.role === "seller" && status==="2" && <TouchableOpacity 
+                                    //Xác nhận đã lấy hàng
+                                    onPress={() => Alert.alert("Xác nhận", "Bạn xác nhận đã lấy hàng?", [
+                                        {text: "Hủy", style: "cancel"},
+                                        {text: "Xác nhận", onPress: () => {
+                                            handleVerifyOrder(order.id, 2);
+                                        }}
+                                    ])} 
+                                    style={[
+                                        {backgroundColor: confirmOrderShipping[order.id] ? '#9e9e9e' : '#4CAF50'}, 
+                                        Styles.confirmOrder
+                                    ]}
+                                    disabled={confirmOrderShipping[order.id]}
+                                >
+                                    <Text style={Styles.textConfirmOrder}>
+                                        {confirmOrder[order.id] ? "Đang xử lý..." : "Đã lấy hàng"}
                                     </Text>
                                 </TouchableOpacity>}
                                 
@@ -307,11 +344,9 @@ const OrderItem = ({status}) => {
                                 }}
                                 disabled={confirmOrder[order.id]}
                             >
-                                <Text style={{
-                                    color: "#c62828",
-                                    fontWeight: '600',
-                                    fontSize: 14
-                                }}>
+                                <Text style={
+                                    styles.textCancelOrder
+                                }>
                                     {loading ? "Đang xử lý..." : "Hủy đơn"}
                                 </Text>
                             </TouchableOpacity>}

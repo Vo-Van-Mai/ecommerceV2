@@ -1,15 +1,15 @@
 // App.js
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Home from "./components/Home/Home";
 import Product from "./components/Product/Product";
-import { Image, StatusBar, Text, View } from "react-native";
+import { Image, StatusBar, Text, TouchableOpacity, View } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import Login from "./components/User/Login";
 // import { Icon } from "react-native-paper";
 import Register from "./components/User/Register";
 import { MyDispatchContext, MyUserContext } from "./configs/Context";
-import { useContext, useReducer } from "react";
+import { useContext, useEffect, useReducer } from "react";
 import Profile from "./components/User/Profile";
 import MyUserReducer from "./Reducer/MyUserReducer";
 import ShopProduct from "./components/Shop/ShopProduct";
@@ -28,13 +28,19 @@ import ListSeller from "./components/Staff/ListSeller";
 import ConfirmOrder from "./components/Order/ConfirmOrder";
 import DeliveringOrder from "./components/Order/DeliveringOrder";
 import HistoryOrder from "./components/Order/HistoryOrder";
+import CreateShop from "./components/Shop/CreateShop";
+import { MySetShopContext, MyShopContext } from "./configs/ShopContext";
+import ShopReducer, { initialShopState } from "./Reducer/ShopReducer";
+import ShopManagement from "./components/Shop/ShopManagement";
+import AdminManagement from "./components/Amin/AdminManagement";
+import CreateStaffForm from "./components/Staff/CreateStaffForm";
 const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 const ShopStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const Drawer = createDrawerNavigator();
 const ProfileStack = createNativeStackNavigator();
-
+const AdminStack = createNativeStackNavigator();
 const HeaderTitle = () => {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", height: 50 }}>
@@ -65,6 +71,7 @@ const AuthStackNavigator = () => {
 const ShopStackNavigator = () => {
   return (
     <ShopStack.Navigator screenOptions={{ headerShown: false }}>
+      <ShopStack.Screen name="ShopManagement" component={ShopManagement} />
       <ShopStack.Screen name="ShopProduct" component={ShopProduct} />
       <ShopStack.Screen name="AddProduct" component={AddProduct} />
     </ShopStack.Navigator>
@@ -80,6 +87,16 @@ const ProfileStackNavigator = () => {
       <ProfileStack.Screen name="Đang giao hàng" component={DeliveringOrder} options={{headerShown: true}} />
       <ProfileStack.Screen name="Lịch sử đơn hàng" component={HistoryOrder} options={{headerShown: true}} />
     </ProfileStack.Navigator>
+  );
+};
+
+
+const AdminStackNavigator = () => {
+  return (
+    <AdminStack.Navigator screenOptions={{ headerShown: false }}>
+      <AdminStack.Screen name="AdminManagement" component={AdminManagement} />
+      <AdminStack.Screen name="CreateStaff" component={CreateStaffForm} options={{headerTitle: "Thêm nhân viên"}}/>
+    </AdminStack.Navigator>
   );
 };
 
@@ -115,16 +132,60 @@ const TabNavigator = () => {
 const DrawerNavigator = () => {
   const user = useContext(MyUserContext);
   const cart = useContext(MyCartContext);
-
+  const shop = useContext(MyShopContext);
+  console.log("shop:", shop);
+  console.log("user:", user);
   return (
     <Drawer.Navigator screenOptions={{ headerTitle: () => <HeaderTitle /> }} initialRouteName="Chính">
       <Drawer.Screen name="Chính" component={TabNavigator} />
       
-      {user!=null && <>
+      {user != null && (
+      <>
         <Drawer.Screen name="Cập nhật hồ sơ" component={EditProfile} />
-        {user?.role==="seller" && <Drawer.Screen name="Quản lý cửa hàng" component={ShopStackNavigator} />}
-      </>}
 
+        {user?.role === "seller" && user?.is_verified_seller === true && (
+          <>
+            {!shop?.shop?.user || shop.shop.user !== user.id ? (
+              <Drawer.Screen name="Tạo cửa hàng" component={CreateShop} />
+            ) : (
+              <Drawer.Screen
+                name="Quản lý cửa hàng"
+                component={ShopStackNavigator}
+                options={{ headerShown: true }}
+              />
+            )}
+          </>
+        )}
+      </>
+    )}
+
+    {user?.role==="admin" && <Drawer.Screen name="Quản lý hệ thống" component={AdminStackNavigator} />}
+
+
+      {user!=null &&<Drawer.Screen name="Đăng xuất" component={() => {
+          const setCart = useContext(MySetCartContext);
+          const setOrder = useContext(MySetOrderContext);
+          const dispatch = useContext(MyDispatchContext);
+          const nav = useNavigation();
+          const logout = () => {
+            dispatch({
+                "type": "logout"
+            });
+            setCart({});
+            // nav.navigate("Trang chủ");
+            setOrder({
+                type: "reset_order"
+            })
+        };
+        useEffect(() => {
+          logout();
+        }, []);
+          return (
+            <View>
+              <Text>Đăng xuất</Text>
+            </View>
+          )
+        }} />}
     </Drawer.Navigator>
   );
 };
@@ -133,6 +194,7 @@ const App = () => {
   const [user, dispatch] = useReducer(MyUserReducer, null);
   const [cart, setCart] = useReducer(MyCartReducer, inittialCartState);
   const [order, setOrder] = useReducer(MyOrderReducer, initialOrderState);
+  const [shop, setShop] = useReducer(ShopReducer,initialShopState);
   return (
     <PaperProvider>
 
@@ -140,17 +202,21 @@ const App = () => {
         <StatusBar barStyle="dark-content" backgroundColor="white" />
         <MyUserContext.Provider value={user}>
           <MyDispatchContext.Provider value={dispatch}>
-            <MyCartContext.Provider value={cart}>
-              <MySetCartContext.Provider value={setCart}>
-                <MyOrderContext.Provider value={order}>
-                  <MySetOrderContext.Provider value={setOrder}>
-                    <NavigationContainer>
-                      <DrawerNavigator />
-                    </NavigationContainer>
-                  </MySetOrderContext.Provider>
-                </MyOrderContext.Provider>
-              </MySetCartContext.Provider>
-            </MyCartContext.Provider>
+            <MyShopContext.Provider value={shop}>
+              <MySetShopContext.Provider value={setShop}>
+                <MyCartContext.Provider value={cart}>
+                  <MySetCartContext.Provider value={setCart}>
+                    <MyOrderContext.Provider value={order}>
+                      <MySetOrderContext.Provider value={setOrder}>
+                        <NavigationContainer>
+                          <DrawerNavigator />
+                        </NavigationContainer>
+                      </MySetOrderContext.Provider>
+                    </MyOrderContext.Provider>
+                  </MySetCartContext.Provider>
+                </MyCartContext.Provider>
+              </MySetShopContext.Provider>
+            </MyShopContext.Provider>
           </MyDispatchContext.Provider>
         </MyUserContext.Provider>
       </>

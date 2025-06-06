@@ -27,6 +27,9 @@ const Home = () => {
     const [page, setPage] = useState(1);
     const nav = useNavigation();
     const [refreshing, setRefreshing] = useState(false)
+    const [priceFilter, setPriceFilter] = useState(null); // "asc" | "desc" | null
+    const [price, setPrice] = useState(null);
+
     
 
     const loadCate = async () => {
@@ -42,12 +45,23 @@ const Home = () => {
                 let url = `${endpoints['products']}?page=${page}`;
 
                 if (q) {
-                    url = `${url}&name=${q}`;
+                    url += `&name=${q}`;
                 }
 
                 if (cateId) {
-                    url = `${url}&cate_id=${cateId}`
+                    url += `&cate_id=${cateId}`
+                    console.log("URL lọc danh mục: ", url)
                 }
+
+                if (priceFilter) {
+                    url += `&ordering=${priceFilter === 'asc' ? 'price' : '-price'}`;
+                    console.log("URL lọc giá: ", url)
+                  }
+
+                if (price) {
+                    url += `&min_price=${price}`;
+                    console.log("URL lọc giá: ", url)
+                  }
                     
                 let res = await Apis.get(url);
                 setProducts(prevProducts => {
@@ -63,7 +77,7 @@ const Home = () => {
                 console.info("request URL" ,url)
             }
             catch(err){
-                console.error(err);
+                // console.error(err);
                 console.log("URL lỗi: ", url)
             }
             finally{
@@ -71,6 +85,7 @@ const Home = () => {
                 
             }
         }
+        
     }
 
     const loadMore = () => {
@@ -85,7 +100,8 @@ const Home = () => {
         try {
             await loadProduct();
         } catch (err) {
-            console.error(err);
+            // console.error(err);
+            console.log("err:", err);
         } finally {
             setRefreshing(false);
         }
@@ -96,17 +112,26 @@ const Home = () => {
         loadCate();
     },[])
 
+    // Chỉ load khi page thay đổi
     useEffect(() => {
-        const timer = setTimeout(() => {
-            loadProduct();
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [q, cateId, page])
+        loadProduct();
+    }, [page]);
 
+    // Reset lại page và danh sách khi các bộ lọc thay đổi
     useEffect(() => {
-        setPage(1);
         setProducts([]);
-    }, [q, cateId])
+        setPage(1);
+    }, [cateId, priceFilter, price]);
+
+    
+    useEffect(() => {
+        const delayDebounce = setTimeout(() => {
+            setProducts([]);
+            setPage(1);
+        }, 500);
+    
+        return () => clearTimeout(delayDebounce);
+    }, [q]);
 
     return (
         <LinearGradient style={[MyStyles.container]} colors={["#A8DEE0", "#F9E2AE"]} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
@@ -120,7 +145,11 @@ const Home = () => {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={{ paddingHorizontal: 5, height: 50 }}
                     >
-                    <TouchableOpacity key={'all'} onPress={() => setCateId(null)}>
+                    <TouchableOpacity key={'all'} onPress={() => {
+                        setCateId(null);
+                        setPriceFilter(null);
+                        setPrice(null);
+                    }}>
                         <Chip style={[{ marginRight: 8 }]} icon="label">Tất cả</Chip>
                     </TouchableOpacity>
 
@@ -130,6 +159,29 @@ const Home = () => {
                         </TouchableOpacity>
                     ))}
                     </ScrollView>
+
+                <View style={{ flexDirection: 'row', padding: 8 }}>
+                    <TextInput placeholder="Lọc theo giá:" style={{ fontSize: 16, marginRight: 8 }} value={price} onChangeText={setPrice}></TextInput>
+
+                    <Chip
+                        icon="arrow-up"
+                        selected={priceFilter === "asc"}
+                        onPress={() => setPriceFilter(priceFilter === "asc" ? null : "asc")}
+                        style={{ marginRight: 8 }}
+                    >
+                        Thấp đến cao
+                    </Chip>
+
+                    <Chip
+                        icon="arrow-down"
+                        selected={priceFilter === "desc"}
+                        onPress={() => setPriceFilter(priceFilter === "desc" ? null : "desc")}
+                    >
+                        Cao đến thấp
+                    </Chip>
+                </View>
+
+
                 <FlatList
                 // ListHeaderComponent={
                 //     <View>
@@ -153,16 +205,17 @@ const Home = () => {
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => (
                     <TouchableOpacity onPress={() => nav.navigate("Product", { productId: item.id })}>
-                    <ProductCard item={item} />
+                        <ProductCard item={item} />
                     </TouchableOpacity>
                 )}
                 numColumns={2}
                 columnWrapperStyle={{ justifyContent: 'space-between' }}
                 onEndReached={loadMore}
                 ListFooterComponent={loading && <ActivityIndicator size={35} style={{ margin: 10 }} />}
-                // contentContainerStyle={{
-                //     paddingBottom: 150, //để không bị che bởi tab bar
-                // }}
+                contentContainerStyle={{
+                    paddingBottom: 130, //để không bị che bởi tab bar
+                }}
+                onEndReachedThreshold={0.5}
                 refreshing={refreshing}
                 onRefresh={refresh}
                 />

@@ -190,15 +190,10 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Momo settings
-import os
-# from dotenv import load_dotenv
-# load_dotenv()
-
 # MoMo Credentials
-MOMO_PARTNER_CODE = os.getenv("MOMO_PARTNER_CODE")
-MOMO_ACCESS_KEY = os.getenv("MOMO_ACCESS_KEY")
-MOMO_SECRET_KEY = os.getenv("MOMO_SECRET_KEY")
-MOMO_ENDPOINT = os.getenv("MOMO_ENDPOINT")
-MOMO_REDIRECT_URL = os.getenv("MOMO_REDIRECT_URL")
-MOMO_IPN_URL = os.getenv("MOMO_IPN_URL")
+MOMO_SECRET_KEY = 'K951B6PE1waDMi640xX08PD3vg6EkVlz'  # Chuỗi, không phải bytes
+MOMO_ACCESS_KEY = 'F8BBA842ECF85'
+MOMO_PARTNER_CODE = 'MOMO'
+MOMO_ENDPOINT = 'https://test-payment.momo.vn/v2/gateway/api/create'
+MOMO_IPN_URL = 'https://your-domain.com/api/payment/momo_ipn'
+MOMO_REDIRECT_URL = 'https://your-domain.com/api/payment/momo_return'

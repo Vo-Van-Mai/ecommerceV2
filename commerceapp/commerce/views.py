@@ -1,5 +1,7 @@
+import uuid
 from venv import create
 
+from cffi.model import qualify
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404
@@ -22,12 +24,15 @@ from .serializers import (CategorySerializer, ProductSerializer, CommentSerializ
                           ProductComparisonSerializer, RevenueStatisticsSerializer,)
 from . import serializers, paginator
 from . import permission
+from decimal import Decimal
+from datetime import timezone
 import calendar
 import time
 import hmac
 import hashlib
 import requests
 from django.conf import settings
+from django.shortcuts import redirect
 from django.http import JsonResponse
 from rest_framework import viewsets, status
 from rest_framework.response import Response
@@ -411,46 +416,43 @@ class ShopViewSet(viewsets.ViewSet):
 
 
 class PaymentViewSet(viewsets.GenericViewSet, generics.RetrieveAPIView):
-    queryset = Payment.objects.all()
+    queryset = PaymentSerializer.prefetch_queryset(Payment.objects.all())
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-
+        queryset = Payment.objects.select_related('order__user', 'order__shop').prefetch_related('order__order_details')
         if not user or user.is_anonymous:
-            return Payment.objects.none()
-        # If staff, return all payments
+            return queryset.none()
         if user.is_staff:
-            return Payment.objects.all()
-
-        # Otherwise, return only user's payments
-        return Payment.objects.filter(order__user=user)
+            return queryset
+        return queryset.filter(order__user=user)
 
     def perform_create(self, serializer):
-        order = get_object_or_404(Order, user=self.request.user, status=0)
+        order = get_object_or_404(Order, user=self.request.user, status=Order.OrderStatus.PENDING)
         serializer.save(order=order)
 
     @action(detail=False, methods=['post'], url_path='momo_payment')
     def momo_payment(self, request):
         # 1. Lấy đơn hàng của user
         order_id = request.data.get("order_id")
+        user = request.user
 
-        if order_id:
-            try:
-                order = Order.objects.get(id=order_id)
-            except Order.DoesNotExist:
-                return Response({"error": "Order không tồn tại."}, status=404)
-        else:
-            # Nếu không truyền thì lấy theo request.user
-            order = Order.objects.filter(user=request.user, status=0).last()
-            if not order:
-                return Response({"error": "Không có đơn hàng nào để thanh toán."}, status=404)
-
+        try:
+            if order_id:
+                # Kiểm tra order thuộc về user và ở trạng thái PENDING
+                order = Order.objects.get(id=order_id, user=user, status=Order.OrderStatus.PENDING)
+            else:
+                order = Order.objects.filter(user=user, status=Order.OrderStatus.PENDING).last()
+                if not order:
+                    return Response({"error": "Không có đơn hàng nào ở trạng thái chờ thanh toán"}, status=404)
+        except Order.DoesNotExist:
+            return Response({"error": "Đơn hàng không tồn tại hoặc bạn không có quyền truy cập"}, status=404)
 
         # 2. Tạo mã order_id và request_id MoMo
-        order_id = str(int(time.time()))
-        request_id = str(int(time.time() * 1000))
+        order_id = str(uuid.uuid4())
+        request_id = str(uuid.uuid4())
         amount = str(order.total_price)  # hoặc tính lại dựa vào order detail
         order_info = f"Thanh toán đơn hàng #{order.id}"
         extra_data = ""
@@ -458,9 +460,15 @@ class PaymentViewSet(viewsets.GenericViewSet, generics.RetrieveAPIView):
         # 3. Tạo Payment trước
         payment = Payment.objects.create(
             order=order,
-            order_id=order_id,  # gắn order_id với bên MoMo
-            status=0,
+            request_id=order_id,  # Lưu order_id của MoMo vào request_id
+            status='0',  # Pending
         )
+
+        # Kiểm tra total_price
+        order_details = order.order_details.all()
+        calculated_amount = sum(detail.quantity * detail.price for detail in order_details)
+        if calculated_amount != order.total_price:
+            return Response({"error": "Tổng giá trị đơn hàng không khớp"}, status=400)
 
         # 4. Ký signature
         raw_signature = f"accessKey={settings.MOMO_ACCESS_KEY}&amount={amount}&extraData={extra_data}&ipnUrl={settings.MOMO_IPN_URL}&orderId={order_id}&orderInfo={order_info}&partnerCode={settings.MOMO_PARTNER_CODE}&redirectUrl={settings.MOMO_REDIRECT_URL}&requestId={request_id}&requestType=captureWallet"
@@ -486,8 +494,12 @@ class PaymentViewSet(viewsets.GenericViewSet, generics.RetrieveAPIView):
             "lang": "vi"
         }
 
-        response = requests.post(settings.MOMO_ENDPOINT, json=data)
-        res_data = response.json()
+        try:
+            response = requests.post(settings.MOMO_ENDPOINT, json=data)
+            response.raise_for_status()  # Kiểm tra lỗi HTTP
+            res_data = response.json()
+        except requests.RequestException as e:
+            return Response({"error": "Lỗi khi gửi yêu cầu đến MoMo", "detail": str(e)}, status=500)
 
         if res_data.get("payUrl"):
             return Response({"payUrl": res_data["payUrl"]})
@@ -500,18 +512,18 @@ class PaymentViewSet(viewsets.GenericViewSet, generics.RetrieveAPIView):
         order_id = request.GET.get('orderId')
 
         try:
-            payment = Payment.objects.get(order_id=order_id)
+            payment = Payment.objects.select_related('order').prefetch_related('order__order_details').get(request_id=order_id)
         except Payment.DoesNotExist:
             return HttpResponse("Không tìm thấy thông tin giao dịch")
 
         if result_code == '0':
-            payment.status = 'completed'
+            payment.status = '1'
             payment.transaction_id = request.GET.get('transId')
             payment.updated_date = datetime.now()
             payment.save()
 
             # Lấy chi tiết đơn hàng
-            order_details = payment.order.orderdetail_set.all()
+            order_details = payment.order.order_details.all()
             detail_data = OrderDetailSerializer(order_details, many=True).data
 
             return JsonResponse({
@@ -527,20 +539,33 @@ class PaymentViewSet(viewsets.GenericViewSet, generics.RetrieveAPIView):
         data = request.data
         order_id = data.get('orderId')
         result_code = int(data.get('resultCode', -1))
+        received_signature = data.get('signature')
+
+        # Ký lại để xác thực
+        raw_signature = f"accessKey={settings.MOMO_ACCESS_KEY}&amount={data.get('amount')}&extraData={data.get('extraData')}&ipnUrl={settings.MOMO_IPN_URL}&orderId={order_id}&orderInfo={data.get('orderInfo')}&partnerCode={settings.MOMO_PARTNER_CODE}&requestId={data.get('requestId')}&requestType=captureWallet"
+        expected_signature = hmac.new(
+            bytes(settings.MOMO_SECRET_KEY, 'utf-8'),
+            bytes(raw_signature, 'utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+
+        if received_signature != expected_signature:
+            return JsonResponse({'message': 'Invalid signature'}, status=403)
 
         try:
-            payment = Payment.objects.get(order_id=order_id)
+            payment = Payment.objects.get(request_id=order_id)
         except Payment.DoesNotExist:
             return JsonResponse({'message': 'Không tìm thấy giao dịch'}, status=404)
 
         if result_code == 0:
-            payment.status = 1
+            payment.status = '1'  # Completed
             payment.transaction_id = data.get('transId')
-            payment.updated_date = datetime.now()
+            payment.updated_date = timezone.now()
             payment.save()
             return JsonResponse({'message': 'IPN: Thanh toán thành công'}, status=200)
         else:
-            payment.status = 2
+            payment.status = '2'  # Failed
+            payment.updated_date = timezone.now()
             payment.save()
             return JsonResponse({'message': 'IPN: Thanh toán thất bại'}, status=400)
 

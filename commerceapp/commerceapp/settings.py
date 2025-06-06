@@ -61,7 +61,10 @@ STATIC_URL = '/static/'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': ( 'oauth2_provider.contrib.rest_framework.OAuth2Authentication',),
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10  # Số lượng bản ghi trên mỗi trang
 }
+
 OAUTH2_PROVIDER = {
     'OAUTH2_BACKEND_CLASS': 'oauth2_provider.oauth2_backends.JSONOAuthLibCore',
 }
@@ -191,7 +194,7 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # MoMo Credentials
-MOMO_SECRET_KEY = 'K951B6PE1waDMi640xX08PD3vg6EkVlz'  # Chuỗi, không phải bytes
+MOMO_SECRET_KEY = 'K951B6PE1waDMi640xX08PD3vg6EkVlz'
 MOMO_ACCESS_KEY = 'F8BBA842ECF85'
 MOMO_PARTNER_CODE = 'MOMO'
 MOMO_ENDPOINT = 'https://test-payment.momo.vn/v2/gateway/api/create'

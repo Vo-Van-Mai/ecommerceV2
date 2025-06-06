@@ -148,11 +148,11 @@ class Payment(BaseModel):
         (2, 'Failed')
     ]
 
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='payment')
-    method = models.CharField(max_length=20, choices=payment_method_choices)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='payments')
+    amount = models.DecimalField(max_digits=10, decimal_places=0, null=True, blank=True)
     status = models.CharField(max_length=20, choices=payment_status_choices, default=0)
     transaction_id = models.CharField(max_length=255, blank=True, null=True)
-    request_id = models.CharField(max_length=100, blank=True, null=True)  # MoMo requestId
+    request_id = models.CharField(max_length=100, blank=True, null=True)
     created_date = models.DateTimeField(default=timezone.now())
 
     class Meta:

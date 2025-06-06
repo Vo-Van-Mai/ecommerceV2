@@ -73,10 +73,11 @@ class Product(BaseModel):
     shop = models.ForeignKey('Shop', on_delete=models.CASCADE, related_name='products')
 
     def save(self, *args, **kwargs):
-        if self.quantity > 0:
-            self.product_status = True
-        else:
-            self.product_status= False
+        if self._state.adding:  # Chỉ khi tạo mới còn khi câp nhật thì không
+            self.stock = self.quantity
+            self.sold = 0
+
+        self.product_status = self.quantity > 0
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -121,13 +122,7 @@ class Order(BaseModel):
 
     status = models.IntegerField(choices=OrderStatus.choices, default=OrderStatus.PENDING)
 
-    def save(self, *args, **kwargs):
-        if self._state.adding:  # Chỉ khi tạo mới còn khi câp nhật thì không
-            self.stock = self.quantity
-            self.sold = 0
 
-        self.product_status = self.quantity > 0
-        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Order #{self.id} by {self.user.username}"

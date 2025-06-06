@@ -1,40 +1,28 @@
 import uuid
-from venv import create
 
-from cffi.model import qualify
-from django.contrib.staticfiles.urls import staticfiles_urlpatterns
-from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 # from tarfile import TruncatedHeaderError
 
 from django.http import HttpResponse
-from paypal.standard.ipn.signals import valid_ipn_received
 from rest_framework import viewsets, permissions, generics, status, parsers
-from rest_framework.decorators import action, api_view
 from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.pagination import PageNumberPagination
 from .models import Category, Product, Comment, User, Shop,Payment, Like, Cart, CartItem, Favourite, OrderDetail, Order
 from .permission import IsSeller, IsOwnerShop, IsBuyer, IsAdmin
 from .serializers import (CategorySerializer, ProductSerializer, CommentSerializer, UserSerializer,FavouriteSerializer,
                           ProductDetailSerializer,ShopSerializer, PaymentSerializer, OrderSerializer, OrderDetailSerializer,
                           LikeSerializer, CartSerializer, CartItemSerializer, CategoryDetailSerializer,
                           ProductComparisonSerializer, RevenueStatisticsSerializer,)
-from . import serializers, paginator
+from . import paginator
 from . import permission
-from decimal import Decimal
 from datetime import timezone
 import calendar
-import time
 import hmac
 import hashlib
 import requests
 from django.conf import settings
-from django.shortcuts import redirect
 from django.http import JsonResponse
-from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -42,7 +30,6 @@ from django.db.models import Sum, Count
 from datetime import datetime
 from decimal import Decimal
 from collections import defaultdict
-from .models import Payment, OrderDetail
 
 
 def index(request):

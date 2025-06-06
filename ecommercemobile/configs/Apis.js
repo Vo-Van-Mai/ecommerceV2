@@ -41,6 +41,7 @@ export const endpoints  = {
     'orderDetail': (orderId) => `/orderdetail/${orderId}`,
     'orderVerify': (orderId) => `/orders/${orderId}/confirm/`,
     'orderVrifyShipping': (orderId) => `/orders/${orderId}/confirm-shipping/`,
+    'confirmReceived': (orderId) => `/orders/${orderId}/confirm-received/`,
 
     //staff
     "createStaff": "/users/register-staff/",

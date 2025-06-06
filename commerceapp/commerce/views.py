@@ -146,7 +146,8 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAP
         li, created = Favourite.objects.get_or_create(user=request.user, product_id = pk)
         if not created:
             li.active = not li.active
-        return Response(ProductDetailSerializer(self.get_object(), context={'request': request}).data, status=status.HTTP_200_OK)
+        li.save()
+        return Response(ProductDetailSerializer(self.get_object(), context={'request': request}).data)
 
 
 
@@ -786,6 +787,24 @@ class OrderViewSet(viewsets.ViewSet):
             order.save()
             return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
         return Response({"Chi tiết": "Không thể cập nhật đơn hàng"}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(methods=['patch'], detail=True, url_path="confirm-received")
+    def confirm_received(self, request, pk):
+        if not request.user or not request.user.is_authenticated:
+            raise PermissionDenied({"chi tiết": "Bạn chưa đăng nhập."})
+        try:
+            order = Order.objects.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({"Chi tiết": "Không tìm thấy đơn hàng!"})
+
+        permission.IsOwnerOrder().has_object_permission(request, self, order)
+
+        if order.status == order.OrderStatus.SHIPPED:
+            order.status = order.OrderStatus.DELIVERED
+            order.save()
+            return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
+        return Response({"Chi tiết": "Không thể cập nhật đơn hàng"}, status=status.HTTP_400_BAD_REQUEST)
+
 
     @action(methods=['get'], url_path="get-order-shop", detail=False)
     def get_order_shop(self, request):

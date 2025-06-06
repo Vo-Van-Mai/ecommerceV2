@@ -36,6 +36,7 @@ import AdminManagement from "./components/Amin/AdminManagement";
 import CreateStaffForm from "./components/Staff/CreateStaffForm";
 import Shop from "./components/Shop/Shop";
 import LikeProduct from "./components/User/LikeProduct";
+import RatingOrder from "./components/Order/RatingOrder";
 const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 const ShopStack = createNativeStackNavigator();
@@ -88,6 +89,7 @@ const ProfileStackNavigator = () => {
       <ProfileStack.Screen name="Đơn hàng" component={Order} options={{headerShown: true}} />
       <ProfileStack.Screen name="Chờ lấy hàng" component={ConfirmOrder} options={{headerShown: true}} />
       <ProfileStack.Screen name="Đang giao hàng" component={DeliveringOrder} options={{headerShown: true}} />
+      <ProfileStack.Screen name="Đánh giá đơn hàng" component={RatingOrder} options={{headerShown: true}} />
       <ProfileStack.Screen name="Lịch sử đơn hàng" component={HistoryOrder} options={{headerShown: true}} />
     </ProfileStack.Navigator>
   );

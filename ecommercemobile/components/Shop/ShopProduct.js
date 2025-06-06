@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from "react";
-import { Dimensions, FlatList, Text, View } from "react-native";
+import { Dimensions, FlatList, Text, TouchableOpacity, View } from "react-native";
 import { MyDispatchContext, MyUserContext } from "../../configs/Context";
 import Styles from "./Styles";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,6 +9,7 @@ import ProductCard from "../Home/ProductCard";
 import { ActivityIndicator } from "react-native-paper";
 import { AntDesign, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from "@react-navigation/native";
 
 const { width, height } = Dimensions.get('window');
 
@@ -18,6 +19,8 @@ const ShopProduct = ({route}) => {
     const [token, setToken] = useState(null);
     const [loading, setLoading] = useState(false);
     const [page, setPage] = useState(1);
+    const nav = useNavigation();
+    
 
     const getToken = async () => {
         const storedToken = await AsyncStorage.getItem("token");

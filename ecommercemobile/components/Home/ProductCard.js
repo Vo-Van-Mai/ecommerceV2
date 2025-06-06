@@ -1,4 +1,4 @@
-import React, { use, useContext, useState } from 'react';
+import React, { use, useContext, useEffect, useState } from 'react';
 import { AntDesign } from '@expo/vector-icons'; // dùng icon trái tim
 import MyStyles from '../../style/MyStyles';
 import Styles from './Styles';
@@ -13,27 +13,50 @@ const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2; // padding 16 + gap 16
 
 const ProductCard = ({item}) => {
-    console.log("item", item)
-  const [like, setLike] = useState(false)
-  const [loading, setLoading] = useState(true);
+    // console.log("item", item)
+
+    const [like, setLike] = useState(false)
+    const [loading, setLoading] = useState(true);
     const user = useContext(MyUserContext)
     const nav = useNavigation()
 
     const likeProduct = async (productId) => {
-      if(user.role==="buyer"){
-        const url = `${endpoints['like'](productId)}`;
-        const res = await authAPI(user.token).post(url);
-        console.log("res", res)
-      }
+        console.log("user", user);
+      
+        console.log("Đã vào likeProduct trong ProductCard: ", productId);
+        if (user.role === "buyer") {
+          try {
+            let newUrl = `${endpoints['product_detail'](productId)}like/`;
+            const res = await authAPI(user.token).post(newUrl); // Thử thêm {} nếu cần
+            console.log("res like", res.data.like)
+            setLike(res.data.like)
+          } catch (err) {
+            console.error("Lỗi khi like product:", err.response?.data || err.message || err);
+          }
+        }
+      };
+
+
+    const getLike = async () => {
+        let newUrl = endpoints['like'];
+        const res = await authAPI(user.token).get(newUrl);
+        setLike(res.data.like)
+    }
+    const isLike = () => {
+        setLike(!getLike());
     }
 
 
-  const isLike = () => {
-    if (like) {
-      setLike(false);
+  useEffect(() => {
+    if(user?.role==="buyer"){
+        getLike();
     }
-    else setLike(true);
-  }
+    else{
+        setLike(false)
+    }
+  }, [user]);
+      
+
   const formatCurrency = (value) => {
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
@@ -62,8 +85,8 @@ const ProductCard = ({item}) => {
                       style={styles.heartButton}
                     onPress={() => {
                         if(user?.role==="buyer"){
-                            setLike(!like)
                             likeProduct(item.id)
+                            setLike(!like)
                         }
                         else{
                             Alert.alert("Bạn cần đăng nhập để thực hiện hành động này", "Vui lòng đăng nhập để thực hiện hành động này", [
@@ -75,15 +98,14 @@ const ProductCard = ({item}) => {
                                     text: "Đóng",
                                     style: "cancel"
                                 },
-
                             ])
                         }
-                      }}
+                    }}
                   >
                       <Icon
-                          name={like ? "heart" : "heart-outline"}
+                          name={user?.role==="buyer" ? like ? "heart" : "heart-outline" : "heart-outline"}
                           size={20}
-                          color={like ? "#e91e63" : "#666"}
+                          color={user?.role==="buyer" ? like ? "#e91e63" : "#666" : "#666"}
                       />
                   </TouchableOpacity>
               </View>
@@ -106,6 +128,7 @@ const ProductCard = ({item}) => {
           </View>
       );
   };
+
   
   const styles = StyleSheet.create({
       card: {

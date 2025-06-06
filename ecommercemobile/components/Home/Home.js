@@ -110,30 +110,24 @@ const Home = () => {
     };
 
 
-    useEffect(()=>{
+    useEffect(() => {
         loadCate();
-        loadProduct();
-    },[])
-
-    // Chỉ load khi page thay đổi
+    }, []);
+    
     useEffect(() => {
-        if (page > 1)
-            loadProduct();
-    }, [page]);
-
-    // Reset lại page và danh sách khi các bộ lọc thay đổi
-    useEffect(() => {
+        // Khi bất kỳ điều kiện nào thay đổi, reset sản phẩm & gọi lại API
         setProducts([]);
-        setPage(1);
-        loadProduct();
-    }, [cateId, priceFilter, price]);
+        setPage(1); // Khi page đổi thì sẽ gọi loadProduct bên useEffect dưới
+    }, [q, cateId, priceFilter, price]);
+    
+    useEffect(() => {
+        loadProduct(); // Chỉ load khi page thay đổi
+    }, [page]);
 
     
     useEffect(() => {
         const delayDebounce = setTimeout(() => {
-            setProducts([]);
             setPage(1);
-            loadProduct();
         }, 500);
     
         return () => clearTimeout(delayDebounce);

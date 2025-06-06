@@ -28,6 +28,9 @@ const OrderItem = ({status}) => {
     const [page, setPage] = useState(1);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [confirmOrderShipping, setConfirmOrderShipping] = useState({});
+    const [confirmReceived, setConfirmReceived] = useState({});
+    const [loadingConfirmReceived, setLoadingConfirmReceived] = useState(false);
+
     
     const formatDate = (dateString) => {
         const date = new Date(dateString);
@@ -171,6 +174,43 @@ const OrderItem = ({status}) => {
             setIsLoadingMore(false);
         }
     };
+
+    const handleConfirmReceived = async (orderId) => {
+        try {
+            setLoadingConfirmReceived(true);
+            // Gọi API xác nhận đã nhận hàng
+            const res = await authAPI(user.token).patch(endpoints['confirm-received'](orderId));
+            
+            if (res.status === 200) {
+                // Cập nhật state local
+                setConfirmReceived(prev => ({
+                    ...prev,
+                    [orderId]: true
+                }));
+                // Hiển thị thông báo thành công
+                Alert.alert(
+                    "Thành công",
+                    "Xác nhận đã nhận hàng thành công!",
+                    [{ text: "OK" }]
+                );
+                // Cập nhật lại danh sách đơn hàng nếu cần
+                if (onReload) {
+                    onReload();
+                }
+            }
+        } catch (error) {
+            console.error("Lỗi khi xác nhận đã nhận hàng:", error);
+            Alert.alert(
+                "Lỗi",
+                "Không thể xác nhận đã nhận hàng. Vui lòng thử lại sau.",
+                [{ text: "OK" }]
+            );
+        } finally {
+            setLoadingConfirmReceived(false);
+        }
+    };
+
+    
 
     useEffect(() => {
         setPage(1);
@@ -350,6 +390,46 @@ const OrderItem = ({status}) => {
                                     {loading ? "Đang xử lý..." : "Hủy đơn"}
                                 </Text>
                             </TouchableOpacity>}
+
+                            {user.role === "buyer" && status === "4" && (
+                                <TouchableOpacity 
+                                    onPress={() => {
+                                        Alert.alert(
+                                            "Xác nhận đã nhận hàng",
+                                            "Bạn có chắc chắn đã nhận được hàng không?",
+                                            [
+                                                {
+                                                    text: "Hủy",
+                                                    style: "cancel"
+                                                },
+                                                {
+                                                    text: "Xác nhận",
+                                                    onPress: () => handleConfirmReceived(order.id)
+                                                }
+                                            ]
+                                        );
+                                    }}
+                                    style={{
+                                        backgroundColor: confirmReceived[order.id] ? '#9e9e9e' : '#4CAF50',
+                                        paddingVertical: 8,
+                                        paddingHorizontal: 20,
+                                        borderRadius: 20,
+                                        elevation: 2,
+                                        marginVertical: 5,
+                                    }}
+                                    disabled={confirmReceived[order.id] || loading}
+                                >
+                                    <Text style={{
+                                        color: 'white',
+                                        fontSize: 14,
+                                        fontWeight: '500',
+                                        textAlign: 'center'
+                                    }}>
+                                        {loading ? "Đang xử lý..." : 
+                                        confirmReceived[order.id] ? "Đã xác nhận" : "Đã nhận hàng"}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
                     </Card.Content>
                 </Card>

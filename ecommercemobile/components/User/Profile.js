@@ -205,7 +205,7 @@ const Profile = () => {
                                 <Icon name="truck" size={30} color={"gray"}/>
                                 <Text>Đang giao hàng</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={{alignItems:"center", margin: 5, padding: 5}}>
+                            <TouchableOpacity onPress={() => nav.navigate("Đánh giá đơn hàng")} style={{alignItems:"center", margin: 5, padding: 5}}>
                                 <Icon name="smile-o" size={30} color={"gray"}/>
                                 <Text>Đánh giá</Text>
                             </TouchableOpacity>

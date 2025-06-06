@@ -1,17 +1,15 @@
 
-import { Dimensions, FlatList, Image, RefreshControl, ScrollView, SectionList, StatusBar, StyleSheet, Switch, Text, View, Animated, TextComponent, SafeAreaView, TouchableOpacity } from "react-native";
-import { useEffect, useState, useRef } from "react";
-import { Button } from "react-native";
-import { Chip, ActivityIndicator, TextInput, List, Searchbar } from "react-native-paper";
-import { Colors } from "react-native/Libraries/NewAppScreen";
-import Apis, { endpoints  } from "../../configs/Apis";
-import { useNavigation } from "@react-navigation/native";
-import Styles from "./Styles";
-import { LinearGradient } from "expo-linear-gradient";
-import MyStyles from "../../style/MyStyles";
-import { AntDesign } from "@expo/vector-icons";
-import ProdcutCard, { ProductCardV2 } from "./ProductCard";
-import ProductCard from "./ProductCard";
+import React, { useEffect, useState } from 'react';
+import { FlatList, SafeAreaView, TouchableOpacity, View, Text, ScrollView, Image, Dimensions,
+} from 'react-native';
+import { Searchbar, Chip, ActivityIndicator } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import Apis, { endpoints } from '../../configs/Apis';
+import { useNavigation } from '@react-navigation/native';
+import ProductCard from './ProductCard';
+
+const { width } = Dimensions.get('window');
 
 export const Items = (props) => {
     return <Text> Hello {props.firstName} {props.lastName}! </Text>
@@ -39,54 +37,59 @@ const Home = () => {
     }
 
     const loadProduct = async () => {
-        if (page > 0){
-            try{
-                setLoading(true)
-                let url = `${endpoints['products']}?page=${page}`;
-
-                if (q) {
-                    url += `&name=${q}`;
-                }
-
-                if (cateId) {
-                    url += `&cate_id=${cateId}`
-                    console.log("URL lọc danh mục: ", url)
-                }
-
-                if (priceFilter) {
-                    url += `&ordering=${priceFilter === 'asc' ? 'price' : '-price'}`;
-                    console.log("URL lọc giá: ", url)
-                  }
-
-                if (price) {
-                    url += `&min_price=${price}`;
-                    console.log("URL lọc giá: ", url)
-                  }
-                    
-                let res = await Apis.get(url);
-                setProducts(prevProducts => {
-                    const newProducts = res.data.results;
-                    return [
-                        ...prevProducts,
-                        ...newProducts.filter(p => !prevProducts.some(prev => prev.id === p.id))
-                    ];
-                    });
-                console.info("Products: ", products)
-                if (res.data.next === null)
-                    setPage(0);
-                console.info("request URL" ,url)
+        if (page === 0) return;
+    
+        try {
+            setLoading(true);
+            let url = `${endpoints['products']}?page=${page}`;
+    
+            if (q) {
+                url += `&name=${q}`;
             }
-            catch(err){
-                // console.error(err);
-                console.log("URL lỗi: ", url)
+    
+            if (cateId) {
+                url += `&cate_id=${cateId}`;
             }
-            finally{
-                setLoading(false);
+    
+            if (priceFilter) {
+                url += `&ordering=${priceFilter === 'asc' ? 'price' : '-price'}`;
+            }
+    
+            if (price) {
+                url += `&min_price=${price}`;
+            }
                 
+            console.log("Đang gọi API với URL:", url);
+            let res = await Apis.get(url);
+            console.log(`Trang ${page} - Số sản phẩm:`, res.data.results?.length);
+    
+            if (!res.data.results || !Array.isArray(res.data.results)) {
+                console.error("Dữ liệu không đúng định dạng:", res.data);
+                return;
             }
+    
+            setProducts(prevProducts => {
+                // Nếu là page 1, thay thế hoàn toàn
+                if (page === 1) {
+                    return res.data.results;
+                }
+                // Nếu là page > 1, thêm vào cuối và lọc trùng
+                const newProducts = res.data.results;
+                return [
+                    ...prevProducts,
+                    ...newProducts.filter(p => !prevProducts.some(prev => prev.id === p.id))
+                ];
+            });
+    
+            if (res.data.next === null) {
+                setPage(0);
+            }
+        } catch (err) {
+            console.error("Lỗi khi tải sản phẩm:", err.response?.data || err.message);
+        } finally {
+            setLoading(false);
         }
-        
-    }
+    };
 
     const loadMore = () => {
         if (!loading && page > 0)
@@ -95,13 +98,12 @@ const Home = () => {
 
     const refresh = async () => {
         setRefreshing(true);
-        setPage(1);
-        setProducts([]);
+        setProducts([]); // Clear products
+        setPage(1); // Reset page
         try {
-            await loadProduct();
+            await Promise.all([loadCate(), loadProduct()]); // Load cả danh mục và sản phẩm
         } catch (err) {
-            // console.error(err);
-            console.log("err:", err);
+            console.error("Lỗi khi refresh:", err);
         } finally {
             setRefreshing(false);
         }
@@ -110,17 +112,20 @@ const Home = () => {
 
     useEffect(()=>{
         loadCate();
+        loadProduct();
     },[])
 
     // Chỉ load khi page thay đổi
     useEffect(() => {
-        loadProduct();
+        if (page > 1)
+            loadProduct();
     }, [page]);
 
     // Reset lại page và danh sách khi các bộ lọc thay đổi
     useEffect(() => {
         setProducts([]);
         setPage(1);
+        loadProduct();
     }, [cateId, priceFilter, price]);
 
     
@@ -128,101 +133,265 @@ const Home = () => {
         const delayDebounce = setTimeout(() => {
             setProducts([]);
             setPage(1);
+            loadProduct();
         }, 500);
     
         return () => clearTimeout(delayDebounce);
     }, [q]);
 
     return (
-        <LinearGradient style={[MyStyles.container]} colors={["#A8DEE0", "#F9E2AE"]} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
-            <SafeAreaView >
-                <View>
-                    <Searchbar placeholder="Tìm kiếm sản phẩm..." value={q} onChangeText={setQ} style={MyStyles.searchBar}/>
+        <SafeAreaView style={styles.container}>
+            {/* Header Section */}
+            <View style={styles.header}>
+                <View style={styles.searchContainer}>
+                    <Searchbar
+                        placeholder="Tìm kiếm sản phẩm..."
+                        value={q}
+                        onChangeText={setQ}
+                        style={styles.searchBar}
+                        icon={() => <Icon name="magnify" size={24} color="#666" />}
+                        inputStyle={styles.searchInput}
+                    />
                 </View>
+            </View>
 
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ paddingHorizontal: 5, height: 50 }}
-                    >
-                    <TouchableOpacity key={'all'} onPress={() => {
-                        setCateId(null);
-                        setPriceFilter(null);
-                        setPrice(null);
-                    }}>
-                        <Chip style={[{ marginRight: 8 }]} icon="label">Tất cả</Chip>
-                    </TouchableOpacity>
-
-                    {categories.map(c => (
-                        <TouchableOpacity key={c.id} onPress={() => setCateId(c.id)}>
-                        <Chip style={{ marginRight: 8 }} icon="label">{c.name}</Chip>
-                        </TouchableOpacity>
-                    ))}
-                    </ScrollView>
-
-                <View style={{ flexDirection: 'row', padding: 8 }}>
-                    <TextInput placeholder="Lọc theo giá:" style={{ fontSize: 16, marginRight: 8 }} value={price} onChangeText={setPrice}></TextInput>
-
-                    <Chip
-                        icon="arrow-up"
-                        selected={priceFilter === "asc"}
-                        onPress={() => setPriceFilter(priceFilter === "asc" ? null : "asc")}
-                        style={{ marginRight: 8 }}
-                    >
-                        Thấp đến cao
-                    </Chip>
-
-                    <Chip
-                        icon="arrow-down"
-                        selected={priceFilter === "desc"}
-                        onPress={() => setPriceFilter(priceFilter === "desc" ? null : "desc")}
-                    >
-                        Cao đến thấp
-                    </Chip>
-                </View>
-
-
-                <FlatList
-                // ListHeaderComponent={
-                //     <View>
-                //     <Text style={{ fontSize: 16, fontWeight: "bold", margin: 5 }}>
-                //         Sản phẩm bán chạy
-                //     </Text>
-                //     <FlatList
-                //         horizontal
-                //         data={products}
-                //         keyExtractor={(item) => item.id.toString()}
-                //         renderItem={({ item }) => (
-                //         <TouchableOpacity onPress={() => nav.navigate("Product", { productId: item.id })}>
-                //             <ProdcutCard item={item} />
-                //         </TouchableOpacity>
-                //         )}
-                //         ListFooterComponent={loading && <ActivityIndicator size={35} style={{ margin: 10 }} />}
-                //     />
-                //     </View>
-                // }
+            <FlatList
                 data={products}
                 keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => (
-                    <TouchableOpacity onPress={() => nav.navigate("Product", { productId: item.id })}>
-                        <ProductCard item={item} />
-                    </TouchableOpacity>
-                )}
                 numColumns={2}
-                columnWrapperStyle={{ justifyContent: 'space-between' }}
+                columnWrapperStyle={styles.productGrid}
                 onEndReached={loadMore}
-                ListFooterComponent={loading && <ActivityIndicator size={35} style={{ margin: 10 }} />}
-                contentContainerStyle={{
-                    paddingBottom: 130, //để không bị che bởi tab bar
-                }}
                 onEndReachedThreshold={0.5}
                 refreshing={refreshing}
                 onRefresh={refresh}
-                />
+                ListHeaderComponent={
+                    <>
+                        {/* Danh mục sản phẩm */}
+                        <View style={styles.categoriesSection}>
+                            <Text style={styles.sectionTitle}>Danh mục</Text>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.categoriesContainer}
+                            >
+                                <TouchableOpacity
+                                    style={[
+                                        styles.categoryItem,
+                                        !cateId && styles.categoryItemActive
+                                    ]}
+                                    onPress={() => {
+                                        setCateId(null);
+                                        setPriceFilter(null);
+                                        setPrice(null);
+                                    }}
+                                >
+                                    <Icon name="apps" size={24} color={!cateId ? "#fff" : "#333"} />
+                                    <Text style={[
+                                        styles.categoryText,
+                                        !cateId && styles.categoryTextActive
+                                    ]}>Tất cả</Text>
+                                </TouchableOpacity>
 
-            </SafeAreaView>
-        </LinearGradient>
+                                {categories.map(c => (
+                                    <TouchableOpacity
+                                        key={c.id}
+                                        style={[
+                                            styles.categoryItem,
+                                            cateId === c.id && styles.categoryItemActive
+                                        ]}
+                                        onPress={() => setCateId(c.id)}
+                                    >
+                                        <Icon name="tag" size={24} color={cateId === c.id ? "#fff" : "#333"} />
+                                        <Text style={[
+                                            styles.categoryText,
+                                            cateId === c.id && styles.categoryTextActive
+                                        ]}>{c.name}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+
+                        {/* Bộ lọc theo giá */}
+                        <View style={styles.filtersSection}>
+                            <Text style={styles.sectionTitle}>Bộ lọc</Text>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.filtersContainer}
+                            >
+                                <TouchableOpacity
+                                    style={[
+                                        styles.filterChip,
+                                        priceFilter === "asc" && styles.filterChipActive
+                                    ]}
+                                    onPress={() => setPriceFilter(priceFilter === "asc" ? null : "asc")}
+                                >
+                                    <Icon name="sort-ascending" size={20} color={priceFilter === "asc" ? "#fff" : "#333"} />
+                                    <Text style={[
+                                        styles.filterText,
+                                        priceFilter === "asc" && styles.filterTextActive
+                                    ]}>Giá thấp - cao</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={[
+                                        styles.filterChip,
+                                        priceFilter === "desc" && styles.filterChipActive
+                                    ]}
+                                    onPress={() => setPriceFilter(priceFilter === "desc" ? null : "desc")}
+                                >
+                                    <Icon name="sort-descending" size={20} color={priceFilter === "desc" ? "#fff" : "#333"} />
+                                    <Text style={[
+                                        styles.filterText,
+                                        priceFilter === "desc" && styles.filterTextActive
+                                    ]}>Giá cao - thấp</Text>
+                                </TouchableOpacity>
+                            </ScrollView>
+                        </View>
+
+                        {/* Products Header */}
+                        <View style={styles.productsHeader}>
+                            <Text style={styles.sectionTitle}>Sản phẩm</Text>
+                            <Text style={styles.productCount}>{products.length} sản phẩm</Text>
+                        </View>
+                    </>
+                }
+                renderItem={({ item }) => (
+                    <TouchableOpacity
+                        style={styles.productCardWrapper}
+                        onPress={() => nav.navigate("Product", { productId: item.id })}
+                    >
+                        <ProductCard item={item} />
+                    </TouchableOpacity>
+                )}
+                ListFooterComponent={
+                    loading && (
+                        <View style={styles.loadingContainer}>
+                            <ActivityIndicator size="large" color="#18A5A7" />
+                        </View>
+                    )
+                }
+                contentContainerStyle={styles.listContainer}
+            />
+        </SafeAreaView>
     );
-}
+};
+
+const styles = {
+    container: {
+        flex: 1,
+        backgroundColor: '#f5f5f5',
+    },
+    header: {
+        backgroundColor: '#fff',
+        paddingTop: 10,
+        paddingHorizontal: 16,
+        paddingBottom: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    searchContainer: {
+        marginBottom: 8,
+    },
+    searchBar: {
+        elevation: 0,
+        backgroundColor: '#f5f5f5',
+        borderRadius: 12,
+    },
+    searchInput: {
+        fontSize: 16,
+    },
+    categoriesSection: {
+        paddingVertical: 16,
+        backgroundColor: '#fff',
+        marginBottom: 8,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 12,
+        paddingHorizontal: 16,
+        color: '#333',
+    },
+    categoriesContainer: {
+        paddingHorizontal: 12,
+    },
+    categoryItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f5f5f5',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        marginHorizontal: 4,
+    },
+    categoryItemActive: {
+        backgroundColor: '#18A5A7',
+    },
+    categoryText: {
+        marginLeft: 8,
+        fontSize: 14,
+        color: '#333',
+    },
+    categoryTextActive: {
+        color: '#fff',
+    },
+    filtersSection: {
+        paddingVertical: 16,
+        backgroundColor: '#fff',
+        marginBottom: 8,
+    },
+    filtersContainer: {
+        paddingHorizontal: 12,
+    },
+    filterChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f5f5f5',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        marginHorizontal: 4,
+    },
+    filterChipActive: {
+        backgroundColor: '#18A5A7',
+    },
+    filterText: {
+        marginLeft: 8,
+        fontSize: 14,
+        color: '#333',
+    },
+    filterTextActive: {
+        color: '#fff',
+    },
+    productsHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: '#fff',
+        marginBottom: 8,
+    },
+    productCount: {
+        fontSize: 14,
+        color: '#666',
+    },
+    productGrid: {
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+    },
+    productCardWrapper: {
+        width: (width - 48) / 2,
+        marginBottom: 16,
+    },
+    listContainer: {
+        paddingBottom: 16,
+    },
+    loadingContainer: {
+        padding: 20,
+        alignItems: 'center',
+    },
+};
 
 export default Home;

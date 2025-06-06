@@ -66,6 +66,8 @@ class Product(BaseModel):
     price = models.DecimalField(max_digits=10, decimal_places=0, verbose_name="Giá")
     quantity = models.IntegerField(default=0)
     product_status = models.BooleanField(default=True)
+    stock = models.IntegerField(default=0)
+    sold = models.IntegerField(default=0)
     created_by = models.CharField(max_length=10, null=True, blank=True)
     category = models.ForeignKey(Category,on_delete=models.PROTECT, related_name='products')
     shop = models.ForeignKey('Shop', on_delete=models.CASCADE, related_name='products')
@@ -119,6 +121,13 @@ class Order(BaseModel):
 
     status = models.IntegerField(choices=OrderStatus.choices, default=OrderStatus.PENDING)
 
+    def save(self, *args, **kwargs):
+        if self._state.adding:  # Chỉ khi tạo mới còn khi câp nhật thì không
+            self.stock = self.quantity
+            self.sold = 0
+
+        self.product_status = self.quantity > 0
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Order #{self.id} by {self.user.username}"

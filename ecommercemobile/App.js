@@ -34,6 +34,8 @@ import ShopReducer, { initialShopState } from "./Reducer/ShopReducer";
 import ShopManagement from "./components/Shop/ShopManagement";
 import AdminManagement from "./components/Amin/AdminManagement";
 import CreateStaffForm from "./components/Staff/CreateStaffForm";
+import Shop from "./components/Shop/Shop";
+import LikeProduct from "./components/User/LikeProduct";
 const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 const ShopStack = createNativeStackNavigator();
@@ -55,6 +57,7 @@ const StackNavigator = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Home" component={Home} />
       <Stack.Screen name="Product" component={Product} options={{headerShown: true}}/>
+      <Stack.Screen name="Shop" component={Shop} options={{headerShown: true}}/>
     </Stack.Navigator>
   );
 };
@@ -110,8 +113,12 @@ const TabNavigator = () => {
     <Tab.Navigator screenOptions={{ headerShown: false }}>
       <Tab.Screen name="Trang chủ" component={StackNavigator} options={{ tabBarIcon: () => <Icon size={35} name="home" /> }} />
 
-      {user?.role==="buyer" && <Tab.Screen name ="Giỏ hàng" component={Cart} options={{tabBarIcon: () => 
-        (<Icon name="shopping-cart" size={28} />), tabBarBadge: cart?.items?.length > 0 ? cart.items.length : null,  }} /> }
+      {user?.role==="buyer" && (<>
+        <Tab.Screen name ="Giỏ hàng" component={Cart} options={{tabBarIcon: () => 
+        (<Icon name="shopping-cart" size={28} />), tabBarBadge: cart?.items?.length > 0 ? cart.items.length : null,  }} /> 
+        <Tab.Screen name ="Yêu thích" component={LikeProduct} options={{tabBarIcon: () => 
+        (<Icon name="heart" size={28} />) }} /> 
+      </>)}
       
       {user?.role==="staff" && <Tab.Screen name="Danh sách" component={ListSeller} options={{ tabBarIcon: () => <Icon size={28} name="users" /> }} />}
       

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = 'http://192.168.100.229:8000/';
+const BASE_URL = 'http://192.168.1.96:8000/';
 export const endpoints  = {
     'categories' : '/categories/',
     'products' : '/products/',
@@ -8,6 +8,7 @@ export const endpoints  = {
 
     //shop
     'shops': '/shops/',
+    'shop-detail': (shopId) => `/shops/${shopId}/`,
     'myShop': '/shops/my-shop/',
     'shopDetail': (userId) => `/shops/${userId}`,
     'shopProducts': (shopId) => `/shops/${shopId}/products/`,
@@ -29,6 +30,9 @@ export const endpoints  = {
     //comment
     "comment": (productId) => `/products/${productId}/comment/`,
     "deleteComment": (commentId) => `/comments/${commentId}/`,
+    
+    //Like
+    "like": '/favourites/',
 
     //order
     'order': '/orders/',

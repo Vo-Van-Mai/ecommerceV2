@@ -12,6 +12,7 @@ const Comment = ({ productId, reload, loadMore, setLoadMore , setStop, comment, 
     const [show, setShow] = useState(false);
     const [selectedCommentId, setSelectedCommentId] = useState(null);
     const [isUpdate, setIsUpdate] = useState(false);
+    
 
     const loadComment = async () => {
         if (page === 0) return;
@@ -111,28 +112,38 @@ const Comment = ({ productId, reload, loadMore, setLoadMore , setStop, comment, 
     };
 
     // Hiển thị comment con
-    const renderChildComments = (parentId) => {
-        return comment.filter(child => child.parent === parentId).map(child => (
-            <View key={child.id} style={[Styles.comment, { marginLeft: 20 }]}>
-                <View style={Styles.row}>
-                    <Image source={{ uri: child.user?.avatar }} style={Styles.avatar} />
-                    <Text style={Styles.username}>{child.user?.username}</Text>
+    const renderChildComments = (parentId, level = 1) => {
+        return comment
+            .filter(child => child.parent === parentId)
+            .map(child => (
+                <View key={child.id}>
+                    <View style={[Styles.comment, { marginLeft: level * 20 }]}>
+                        <View style={Styles.row}>
+                            <Image source={{ uri: child.user?.avatar }} style={Styles.avatar} />
+                            <Text style={Styles.username}>{child.user?.username}</Text>
+                        </View>
+                        <View style={{ flexDirection: "row", alignItems: "center" }}>
+                            <Text style={{ marginRight: 10 }}>{child.content}</Text>
+                            <TouchableOpacity 
+                                onPress={() => {
+                                    setReply(true);
+                                    setOwnerCmt(child.user?.id);
+                                    setParentId(child.id);
+                                }} 
+                                style={{ backgroundColor: "lightgray", padding: 3, borderRadius: 5, margin: 3 }}
+                            >
+                                <Text style={{ color: "blue", fontSize: 12 }}>
+                                    Phản hồi {child?.user?.username}
+                                </Text>
+                            </TouchableOpacity>
+    
+                            {renderCommentActions(child)}
+                        </View>
+                    </View>
+                    {/* Đệ quy để hiển thị các comment con của comment hiện tại */}
+                    {renderChildComments(child.id, level + 1)}
                 </View>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Text style={{ marginRight: 10 }}>{child.content}</Text>
-                    <TouchableOpacity onPress={() => {
-                        setReply(true);
-                        setOwnerCmt(child.user?.id);
-                        setParentId(child.id);
-                    }} style={{ backgroundColor: "lightgray", padding: 3, borderRadius: 5, margin: 3 }}>
-                        <Text style={{ color: "blue", fontSize: 12 }}>Phản hồi {child?.user?.username}</Text>
-                    </TouchableOpacity>
-
-                    {/* Action cho comment con */}
-                    {renderCommentActions(child)}
-                </View>
-            </View>
-        ));
+            ));
     };
 
     const loadMoreComment = () => {

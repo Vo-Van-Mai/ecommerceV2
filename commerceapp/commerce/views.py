@@ -16,11 +16,10 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
 from .models import Category, Product, Comment, User, Shop,Payment, Like, Cart, CartItem, Favourite, OrderDetail, Order
 from .permission import IsSeller, IsOwnerShop, IsBuyer, IsAdmin
-from .serializers import (CategorySerializer, ProductSerializer, CommentSerializer, UserSerializer,
-                          ProductDetailSerializer,
-                          ShopSerializer, PaymentSerializer, OrderSerializer, OrderDetailSerializer,
+from .serializers import (CategorySerializer, ProductSerializer, CommentSerializer, UserSerializer,FavouriteSerializer,
+                          ProductDetailSerializer,ShopSerializer, PaymentSerializer, OrderSerializer, OrderDetailSerializer,
                           LikeSerializer, CartSerializer, CartItemSerializer, CategoryDetailSerializer,
-                          ProductComparisonSerializer, RevenueStatisticsSerializer)
+                          ProductComparisonSerializer, RevenueStatisticsSerializer,)
 from . import serializers, paginator
 from . import permission
 from decimal import Decimal
@@ -141,9 +140,10 @@ class ProductViewSet(viewsets.ViewSet, generics.ListAPIView, generics.RetrieveAP
         li, created = Favourite.objects.get_or_create(user=request.user, product_id = pk)
         if not created:
             li.active = not li.active
-        li.save()
-
         return Response(ProductDetailSerializer(self.get_object(), context={'request': request}).data, status=status.HTTP_200_OK)
+
+
+
 
     @action(methods=['get'], detail=True, url_path='rating')
     def get_rating(self, request, pk):
@@ -301,8 +301,6 @@ class ShopViewSet(viewsets.ViewSet):
         except Shop.DoesNotExist:
             return Response({"detail": "Shop không tồn tại"}, status=status.HTTP_404_NOT_FOUND)
 
-        if not IsOwnerShop().has_object_permission(request, self, shop):
-            raise PermissionDenied("bạn không phải chủ của hàng này!")
         return Response(ShopSerializer(shop).data, status=status.HTTP_200_OK)
 
     def create(self, request):
@@ -1222,5 +1220,13 @@ class AdminRevenueStatisticsViewSet(viewsets.ViewSet):
             'total_products_sold': total_products,
             'stats': stats
         })
+
+class FavouriteViewSet(viewsets.ViewSet,generics.ListAPIView):
+    queryset = Favourite.objects.filter(active=True)
+    serializer_class = FavouriteSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = paginator.ProductPaginator
+    def get_queryset(self):
+        return Favourite.objects.filter(user=self.request.user)
 
 

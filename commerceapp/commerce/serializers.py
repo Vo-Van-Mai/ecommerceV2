@@ -3,7 +3,7 @@ from itertools import product
 from django.utils.translation.trans_null import activate
 from rest_framework import serializers, validators
 from rest_framework.serializers import ModelSerializer, SerializerMethodField
-from .models import Category, Product, Comment, User, Shop, Like, Cart, CartItem, Payment, ImageProduct, Order, OrderDetail
+from .models import Category, Product, Comment, User, Shop, Like, Cart, CartItem, Payment, ImageProduct, Order, OrderDetail, Favourite
 
 class CategorySerializer(ModelSerializer):
 
@@ -345,3 +345,23 @@ class AdminRevenueStatisticsSerializer(serializers.Serializer):
             child=serializers.Field()
         )
     )
+
+class FavouriteSerializer(ModelSerializer):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['user'] ={
+            'id': instance.user.id,
+            'username': instance.user.username
+        }
+        data['product'] = {
+            'id': instance.product_id,
+            'name': instance.product.name,
+            'shop_id': instance.product.shop_id,
+            'shop_name': instance.product.shop.name,
+            'price': instance.product.price
+        }
+        return data
+    class Meta:
+        model = Favourite
+        fields = '__all__'
+

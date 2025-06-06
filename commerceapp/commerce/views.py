@@ -22,16 +22,22 @@ from .serializers import (CategorySerializer, ProductSerializer, CommentSerializ
                           ProductComparisonSerializer, RevenueStatisticsSerializer,)
 from . import serializers, paginator
 from . import permission
-from decimal import Decimal
-from datetime import datetime
 import calendar
 import time
 import hmac
 import hashlib
 import requests
 from django.conf import settings
-from django.shortcuts import redirect
 from django.http import JsonResponse
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from django.db.models import Sum, Count
+from datetime import datetime
+from decimal import Decimal
+from collections import defaultdict
+from .models import Payment, OrderDetail
 
 
 def index(request):
@@ -1207,16 +1213,7 @@ class RevenueStatisticsViewSet(viewsets.ViewSet):
 
         return list(yearly_stats.values())
 
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser
-from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
-from django.db.models import Sum, Count
-from datetime import datetime
-from decimal import Decimal
-from collections import defaultdict
-from .models import Payment, OrderDetail
+
 
 
 class AdminRevenueViewSet(viewsets.ViewSet):

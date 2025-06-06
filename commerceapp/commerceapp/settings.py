@@ -192,8 +192,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Momo settings
 import os
-from dotenv import load_dotenv
-load_dotenv()
+# from dotenv import load_dotenv
+# load_dotenv()
 
 # MoMo Credentials
 MOMO_PARTNER_CODE = os.getenv("MOMO_PARTNER_CODE")

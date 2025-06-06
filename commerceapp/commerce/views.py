@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from paypal.standard.ipn.signals import valid_ipn_received
 from rest_framework import viewsets, permissions, generics, status, parsers
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -25,6 +25,14 @@ from . import permission
 from decimal import Decimal
 from datetime import datetime
 import calendar
+import time
+import hmac
+import hashlib
+import requests
+from django.conf import settings
+from django.shortcuts import redirect
+from django.http import JsonResponse
+
 
 def index(request):
     return HttpResponse("E-commerce")
@@ -397,16 +405,11 @@ class ShopViewSet(viewsets.ViewSet):
 
 
 class PaymentViewSet(viewsets.GenericViewSet, generics.RetrieveAPIView):
-    """ViewSet for viewing and editing Payment instances"""
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """
-        This view should return a list of all payments
-        for the currently authenticated user.
-        """
         user = self.request.user
 
         if not user or user.is_anonymous:
@@ -418,93 +421,122 @@ class PaymentViewSet(viewsets.GenericViewSet, generics.RetrieveAPIView):
         # Otherwise, return only user's payments
         return Payment.objects.filter(order__user=user)
 
-    @action(detail=False, methods=['post'])
-    def initialize(self, request):
-        """
-        Initialize a payment
-        """
-        serializer = PaymentSerializer(data=request.data)
+    def perform_create(self, serializer):
+        order = get_object_or_404(Order, user=self.request.user, status=0)
+        serializer.save(order=order)
 
-        if serializer.is_valid():
-            order_id = serializer.validated_data.get('order_id')
-            method = serializer.validated_data.get('method')
-            return_url = serializer.validated_data.get('return_url')
+    @action(detail=False, methods=['post'], url_path='momo_payment')
+    def momo_payment(self, request):
+        # 1. Lấy đơn hàng của user
+        order_id = request.data.get("order_id")
 
-            # Get the order
+        if order_id:
             try:
-                from models import Order
-                order = Order.objects.get(id=order_id, user=request.user)
+                order = Order.objects.get(id=order_id)
             except Order.DoesNotExist:
-                return Response(
-                    {'error': 'Order not found or does not belong to user'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+                return Response({"error": "Order không tồn tại."}, status=404)
+        else:
+            # Nếu không truyền thì lấy theo request.user
+            order = Order.objects.filter(user=request.user, status=0).last()
+            if not order:
+                return Response({"error": "Không có đơn hàng nào để thanh toán."}, status=404)
 
-            # Create payment
-            payment = Payment.objects.create(
-                order=order,
-                amount=order.total_amount,  # Assuming Order model has total_amount field
-                method=method
-            )
 
-            # Return payment data for MoMo processing
-            response_data = {
-                'payment_id': payment.id,
-                'amount': payment.amount,
-                'method': payment.method,
-                'status': payment.status,
-                'order_id': order.id
-            }
+        # 2. Tạo mã order_id và request_id MoMo
+        order_id = str(int(time.time()))
+        request_id = str(int(time.time() * 1000))
+        amount = str(order.total_price)  # hoặc tính lại dựa vào order detail
+        order_info = f"Thanh toán đơn hàng #{order.id}"
+        extra_data = ""
 
-            if return_url:
-                response_data['return_url'] = return_url
+        # 3. Tạo Payment trước
+        payment = Payment.objects.create(
+            order=order,
+            order_id=order_id,  # gắn order_id với bên MoMo
+            status=0,
+        )
 
-            return Response(response_data, status=status.HTTP_201_CREATED)
+        # 4. Ký signature
+        raw_signature = f"accessKey={settings.MOMO_ACCESS_KEY}&amount={amount}&extraData={extra_data}&ipnUrl={settings.MOMO_IPN_URL}&orderId={order_id}&orderInfo={order_info}&partnerCode={settings.MOMO_PARTNER_CODE}&redirectUrl={settings.MOMO_REDIRECT_URL}&requestId={request_id}&requestType=captureWallet"
+        signature = hmac.new(
+            bytes(settings.MOMO_SECRET_KEY, 'utf-8'),
+            bytes(raw_signature, 'utf-8'),
+            hashlib.sha256
+        ).hexdigest()
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # 5. Dữ liệu gửi MoMo
+        data = {
+            "partnerCode": settings.MOMO_PARTNER_CODE,
+            "accessKey": settings.MOMO_ACCESS_KEY,
+            "requestId": request_id,
+            "amount": amount,
+            "orderId": order_id,
+            "orderInfo": order_info,
+            "redirectUrl": settings.MOMO_REDIRECT_URL,
+            "ipnUrl": settings.MOMO_IPN_URL,
+            "extraData": extra_data,
+            "requestType": "captureWallet",
+            "signature": signature,
+            "lang": "vi"
+        }
+
+        response = requests.post(settings.MOMO_ENDPOINT, json=data)
+        res_data = response.json()
+
+        if res_data.get("payUrl"):
+            return Response({"payUrl": res_data["payUrl"]})
+        else:
+            return Response({"error": "Giao dịch thất bại", "detail": res_data}, status=400)
+
+    @action(detail=False, methods=['get'])
+    def momo_return(self, request):
+        result_code = request.GET.get('resultCode')
+        order_id = request.GET.get('orderId')
+
+        try:
+            payment = Payment.objects.get(order_id=order_id)
+        except Payment.DoesNotExist:
+            return HttpResponse("Không tìm thấy thông tin giao dịch")
+
+        if result_code == '0':
+            payment.status = 'completed'
+            payment.transaction_id = request.GET.get('transId')
+            payment.updated_date = datetime.now()
+            payment.save()
+
+            # Lấy chi tiết đơn hàng
+            order_details = payment.order.orderdetail_set.all()
+            detail_data = OrderDetailSerializer(order_details, many=True).data
+
+            return JsonResponse({
+                "message": "Thanh toán thành công!",
+                "payment_id": payment.id,
+                "order_details": detail_data
+            }, status=200)
+        else:
+            return JsonResponse({"message": f"Thanh toán thất bại: {request.GET.get('message')}"}, status=400)
 
     @action(detail=False, methods=['post'])
-    def verify(self, request):
-        """
-        Verify a payment
-        """
-        serializer = PaymentSerializer(data=request.data)
+    def momo_ipn(self, request):
+        data = request.data
+        order_id = data.get('orderId')
+        result_code = int(data.get('resultCode', -1))
 
-        if serializer.is_valid():
-            payment_id = request.data.get('payment_id')
-            transaction_id = serializer.validated_data.get('transaction_id')
-            payment_data = serializer.validated_data.get('payment_data')
+        try:
+            payment = Payment.objects.get(order_id=order_id)
+        except Payment.DoesNotExist:
+            return JsonResponse({'message': 'Không tìm thấy giao dịch'}, status=404)
 
-            if not payment_id:
-                return Response(
-                    {'error': 'payment_id is required'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Get the payment
-            payment = get_object_or_404(Payment, id=payment_id)
-
-            # Check if the payment belongs to the user if not staff
-            if not request.user.is_staff and payment.order.user != request.user:
-                return Response(
-                    {'error': 'Payment does not belong to user'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-
-                # Update payment with verification data
-                if transaction_id:
-                    payment.transaction_id = transaction_id
-                if payment_data:
-                    payment.payment_details = payment_data
-
-                # Update status to completed (you can add more logic here)
-                payment.status = Payment.payment_status_choices.COMPLETED
-                payment.save()
-
-                serializer = PaymentSerializer(payment)
-                return Response(serializer.data, status=status.HTTP_200_OK)
-
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if result_code == 0:
+            payment.status = 1
+            payment.transaction_id = data.get('transId')
+            payment.updated_date = datetime.now()
+            payment.save()
+            return JsonResponse({'message': 'IPN: Thanh toán thành công'}, status=200)
+        else:
+            payment.status = 2
+            payment.save()
+            return JsonResponse({'message': 'IPN: Thanh toán thất bại'}, status=400)
 
 
 class CommentViewSet(viewsets.ViewSet, generics.DestroyAPIView, generics.UpdateAPIView):
@@ -1004,32 +1036,31 @@ class ProductComparisonViewSet(viewsets.ViewSet):
 
 
 class RevenueStatisticsViewSet(viewsets.ViewSet):
-
     permission_classes = [IsAuthenticated]
-    serializer_class= RevenueStatisticsSerializer
+    serializer_class = RevenueStatisticsSerializer
 
-    @action(detail=True, methods=['get'], url_path='revenue-stats')
-    def get_revenue_statistics(self, request, pk=None):
+    @action(detail=True, methods=['get'], url_path='revenue-stats/(?P<period_type>month|quarter|year)')
+    def get_revenue_statistics(self, request, pk=None, period_type=None):
         # Get query parameters
-        period_type = request.query_params.get('period', 'month')  # month, quarter, year
+        period_type = self.kwargs.get('period_type', 'month')  # month, quarter, year
         year = request.query_params.get('year')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
 
         # Validate shop ownership
-        shop = get_object_or_404(Shop, id=pk, owner_id=request.user)
+        shop = get_object_or_404(Shop, id=pk, user=request.user)
 
         # Base queryset for completed payments with successful orders
         base_payments = Payment.objects.filter(
-            order__orderdetail__product__shop=shop,
-            status='completed'
+            order__order_details__product__shop=shop,
+            status=1
         ).distinct()
 
         # Apply date filters
         if year:
             try:
                 year = int(year)
-                base_payments = base_payments.filter(created_at__year=year)
+                base_payments = base_payments.filter(created_date__year=year)
             except ValueError:
                 return Response(
                     {'error': 'Sai định dạng năm'},
@@ -1041,7 +1072,7 @@ class RevenueStatisticsViewSet(viewsets.ViewSet):
                 start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
                 end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
                 base_payments = base_payments.filter(
-                    created_at__date__range=[start_date, end_date]
+                    created_date__date__range=[start_date, end_date]
                 )
             except ValueError:
                 return Response(
@@ -1091,8 +1122,8 @@ class RevenueStatisticsViewSet(viewsets.ViewSet):
         # Get all payments for completed orders
         monthly_stats = {}
 
-        for payment in payments.order_by('created_at'):
-            created_date = payment.created_at
+        for payment in payments.order_by('created_date'):
+            created_date = payment.created_date
             year = created_date.year
             month = created_date.month
             month_key = f"{year}-{month:02d}"
@@ -1122,8 +1153,8 @@ class RevenueStatisticsViewSet(viewsets.ViewSet):
         # Get all payments for completed orders
         quarterly_stats = {}
 
-        for payment in payments.order_by('created_at'):
-            created_date = payment.created_at
+        for payment in payments.order_by('created_date'):
+            created_date = payment.created_date
             year = created_date.year
             quarter = (created_date.month - 1) // 3 + 1
             quarter_key = f"{year}-Q{quarter}"
@@ -1152,8 +1183,8 @@ class RevenueStatisticsViewSet(viewsets.ViewSet):
         # Get all payments for completed orders
         yearly_stats = {}
 
-        for payment in payments.order_by('created_at'):
-            created_date = payment.created_at
+        for payment in payments.order_by('created_date'):
+            created_date = payment.created_date
             year = created_date.year
             year_key = str(year)
 
@@ -1176,50 +1207,100 @@ class RevenueStatisticsViewSet(viewsets.ViewSet):
 
         return list(yearly_stats.values())
 
-class AdminRevenueStatisticsViewSet(viewsets.ViewSet):
-    permission_classes = [IsAdmin]  # Chỉ admin mới truy cập được
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from rest_framework.permissions import IsAdminUser
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from django.db.models import Sum, Count
+from datetime import datetime
+from decimal import Decimal
+from collections import defaultdict
+from .models import Payment, OrderDetail
 
-    @action(detail=False, methods=['get'], url_path='admin-revenue-stats')
-    def get_admin_revenue_statistics(self, request):
-        # 1. Lấy query parameters
-        period_type = request.query_params.get('period', 'month')  # month, quarter, year
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
 
-        # 2. Query cơ bản: tất cả đơn đã thanh toán hoàn tất
-        base_payments = Payment.objects.filter(status='completed').distinct()
+class AdminRevenueViewSet(viewsets.ViewSet):
+    permission_classes = [IsAdmin]
 
-        # 3. Lọc theo khoảng thời gian nếu có
-        if start_date and end_date:
-            try:
-                start = datetime.strptime(start_date, '%Y-%m-%d').date()
-                end = datetime.strptime(end_date, '%Y-%m-%d').date()
-                base_payments = base_payments.filter(created_at__date__range=[start, end])
-            except ValueError:
-                return Response({'error': 'Sai định dạng ngày. Dùng YYYY-MM-DD'}, status=400)
+    @action(detail=False, methods=['get'], url_path='statistics/(?P<period_type>month|quarter|year)')
+    def get_admin_statistics(self, request, period_type=None):
+        # Validate and parse dates
+        start_date_str = request.query_params.get("start_date")
+        end_date_str = request.query_params.get("end_date")
 
-        # 4. Tạo thống kê linh hoạt
-        if period_type == 'month':
-            stats = self.get_monthly_stats(base_payments)
-        elif period_type == 'quarter':
-            stats = self.get_quarterly_stats(base_payments)
-        elif period_type == 'year':
-            stats = self.get_yearly_stats(base_payments)
-        else:
-            return Response({'error': 'Giai đoạn không hợp lệ'}, status=400)
+        if not start_date_str or not end_date_str:
+            raise ValidationError({"detail": "Cần cung cấp start_date và end_date (YYYY-MM-DD)"})
 
-        # 5. Thống kê sản phẩm đã bán
-        total_products = OrderDetail.objects.filter(order__payment__in=base_payments).aggregate(
-            total_sold=Sum('quantity'))['total_sold'] or 0
+        try:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            raise ValidationError({"detail": "Sai định dạng ngày. Dùng YYYY-MM-DD"})
 
-        # 6. Trả dữ liệu
+        if start_date > end_date:
+            raise ValidationError({"detail": "start_date phải nhỏ hơn hoặc bằng end_date"})
+
+        # Lọc Payment
+        payments = Payment.objects.filter(status=1, created_date__date__range=(start_date, end_date)).select_related('order')
+
+        # Gom nhóm thống kê
+        stats = self.get_grouped_stats(payments, period_type)
+
+        # Tổng hợp
+        total = payments.aggregate(
+            total_revenue=Sum('amount'),
+            total_orders=Count('id')
+        )
+
+        total_products = OrderDetail.objects.filter(
+            order__in=[p.order_id for p in payments]
+        ).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+
         return Response({
-            'period': period_type,
-            'total_revenue': sum(item['total_revenue'] for item in stats),
-            'total_orders': sum(item['total_orders'] for item in stats),
-            'total_products_sold': total_products,
-            'stats': stats
-        })
+            "period_type": period_type,
+            "statistics": stats,
+            "summary": {
+                "total_revenue": str(total['total_revenue'] or Decimal('0.00')),
+                "total_orders": total['total_orders'] or 0,
+                "total_products_sold": total_products
+            }
+        }, status=status.HTTP_200_OK)
+
+    def get_grouped_stats(self, payments, period_type):
+        grouped = defaultdict(lambda: {"revenue": Decimal('0.00'), "orders": 0, "products_sold": 0})
+
+        for payment in payments:
+            dt = payment.created_date
+            key = self.get_period_key(dt, period_type)
+
+            grouped[key]["revenue"] += payment.amount
+            grouped[key]["orders"] += 1
+
+            # Tính tổng sản phẩm của từng order
+            quantity = OrderDetail.objects.filter(order=payment.order).aggregate(qty=Sum('quantity'))['qty'] or 0
+            grouped[key]["products_sold"] += quantity
+
+        # Format output
+        return [
+            {
+                "period": key,
+                "total_revenue": str(data["revenue"]),
+                "total_orders": data["orders"],
+                "total_products_sold": data["products_sold"]
+            }
+            for key, data in sorted(grouped.items())
+        ]
+
+    def get_period_key(self, dt, period_type):
+        if period_type == "month":
+            return f"{dt.year}-{dt.month:02d}"
+        elif period_type == "quarter":
+            quarter = (dt.month - 1) // 3 + 1
+            return f"{dt.year}-Q{quarter}"
+        elif period_type == "year":
+            return str(dt.year)
+        else:
+            raise ValidationError({"detail": "Giai đoạn không hợp lệ"})
 
 class FavouriteViewSet(viewsets.ViewSet,generics.ListAPIView):
     queryset = Favourite.objects.filter(active=True)

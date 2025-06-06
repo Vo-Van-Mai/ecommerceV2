@@ -50,13 +50,20 @@ class MyAdminSite(admin.AdminSite):
     site_header = 'E-Commerce-NM'
 
     def get_urls(self):
-        return [path('product-stats', self.product_stats),] + super().get_urls()
-    def product_stats(self, request):
-        stats = Category.objects.annotate(c = Count('products')).values('id', 'name', 'c')
-        return TemplateResponse(request, 'admin/stats.html', {
-            'stats' : stats
-        })
+        urls = super().get_urls()
+        custom_urls = [
+            path('stats/', self.admin_view(self.product_stats), name='stats')
+        ]
+        return custom_urls + urls
 
+    def product_stats(self, request):
+        stats = Category.objects.annotate(product_count=Count('products')).values('name', 'product_count')
+        labels = [s['name'] for s in stats]
+        data = [s['product_count'] for s in stats]
+        return TemplateResponse(request, 'admin/stats.html', {
+            'labels': labels,
+            'data': data,
+        })
 
 admin_site = MyAdminSite(name='eCommerce')
 

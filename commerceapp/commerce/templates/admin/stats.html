@@ -1,36 +1,165 @@
 {% extends "admin/base_site.html" %}
-{% block title %}Thống kê sản phẩm theo danh mục{% endblock %}
+
+{% block extrastyle %}
+  <style>
+    .module { padding: 20px; }
+    canvas {
+      margin: 20px 0;
+      max-width: 100%;
+      max-height: 400px;
+    }
+    .chart-container {
+      margin-bottom: 40px;
+    }
+    .errornote {
+      color: red;
+      margin-bottom: 10px;
+    }
+    form {
+      margin-bottom: 20px;
+    }
+    label {
+      margin-right: 10px;
+    }
+    input[type="date"] {
+      padding: 5px;
+      margin-right: 10px;
+    }
+    input[type="submit"] {
+      padding: 5px 15px;
+    }
+  </style>
+{% endblock %}
 
 {% block content %}
-<h1>Thống kê sản phẩm</h1>
-<canvas id="productChart" width="600" height="300"></canvas>
+  <div class="module">
+    <h1>Thống kê danh mục</h1>
+    {% if error %}
+      <p class="errornote">{{ error }}</p>
+    {% endif %}
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-  const ctx = document.getElementById('productChart').getContext('2d');
-  const chart = new Chart(ctx, {
+    <!-- Form lọc thời gian -->
+    <form method="get" action="{% url 'admin:stats' %}">
+      <label for="start_date">Từ ngày:</label>
+      <input type="date" id="start_date" name="start_date" value="{{ start_date }}">
+      <label for="end_date">Đến ngày:</label>
+      <input type="date" id="end_date" name="end_date" value="{{ end_date }}">
+      <input type="submit" value="Lọc">
+    </form>
+
+    <!-- Biểu đồ số lượng sản phẩm -->
+    <div class="chart-container">
+      <h2>Số lượng sản phẩm theo danh mục</h2>
+      <canvas id="productChart"></canvas>
+    </div>
+
+    <!-- Biểu đồ doanh thu -->
+    <div class="chart-container">
+      <h2>Doanh thu theo danh mục</h2>
+      <canvas id="revenueChart"></canvas>
+    </div>
+
+    <!-- Biểu đồ số lượng đơn hàng -->
+    <div class="chart-container">
+      <h2>Số lượng đơn hàng theo danh mục</h2>
+      <canvas id="orderChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Tích hợp Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+    // Biểu đồ số lượng sản phẩm
+    const productCtx = document.getElementById('productChart').getContext('2d');
+    new Chart(productCtx, {
       type: 'bar',
       data: {
-          labels: {{ labels|safe }},
-          datasets: [{
-              label: 'Số sản phẩm',
-              data: {{ data|safe }},
-              backgroundColor: 'rgba(54, 162, 235, 0.6)',
-              borderColor: 'rgba(54, 162, 235, 1)',
-              borderWidth: 1
-          }]
+        labels: {{ labels|safe }},
+        datasets: [{
+          label: 'Số lượng sản phẩm',
+          data: {{ product_data|safe }},
+          backgroundColor: 'rgba(54, 162, 235, 0.5)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1
+        }]
       },
       options: {
-          responsive: true,
-          scales: {
-              y: {
-                  beginAtZero: true,
-                  ticks: {
-                      stepSize: 1
-                  }
-              }
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Số lượng sản phẩm' }
+          },
+          x: {
+            title: { display: true, text: 'Danh mục' }
           }
+        },
+        plugins: {
+          legend: { display: true },
+          title: { display: true, text: 'Thống kê số lượng sản phẩm theo danh mục' }
+        }
       }
-  });
-</script>
+    });
+
+    // Biểu đồ doanh thu
+    const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+    new Chart(revenueCtx, {
+      type: 'bar',
+      data: {
+        labels: {{ labels|safe }},
+        datasets: [{
+          label: 'Doanh thu (VND)',
+          data: {{ revenue_data|safe }},
+          backgroundColor: 'rgba(75, 192, 192, 0.5)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Doanh thu (VND)' }
+          },
+          x: {
+            title: { display: true, text: 'Danh mục' }
+          }
+        },
+        plugins: {
+          legend: { display: true },
+          title: { display: true, text: 'Thống kê doanh thu theo danh mục' }
+        }
+      }
+    });
+
+    // Biểu đồ số lượng đơn hàng
+    const orderCtx = document.getElementById('orderChart').getContext('2d');
+    new Chart(orderCtx, {
+      type: 'bar',
+      data: {
+        labels: {{ labels|safe }},
+        datasets: [{
+          label: 'Số lượng đơn hàng',
+          data: {{ order_data|safe }},
+          backgroundColor: 'rgba(255, 99, 132, 0.5)',
+          borderColor: 'rgba(255, 99, 132, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Số lượng đơn hàng' }
+          },
+          x: {
+            title: { display: true, text: 'Danh mục' }
+          }
+        },
+        plugins: {
+          legend: { display: true },
+          title: { display: true, text: 'Thống kê số lượng đơn hàng theo danh mục' }
+        }
+      }
+    });
+  </script>
 {% endblock %}

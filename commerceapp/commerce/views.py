@@ -1,10 +1,16 @@
 import uuid
 
+from cffi.model import qualify
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.db.models import Sum, Count, QuerySet
 from django.shortcuts import get_object_or_404
 # from tarfile import TruncatedHeaderError
 
 from django.http import HttpResponse
-from rest_framework import viewsets, permissions, generics, status, parsers
+from paypal.standard.ipn.signals import valid_ipn_received
+from rest_framework import viewsets, permissions, generics, status, parsers, mixins
+from rest_framework.decorators import action, api_view
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
@@ -13,8 +19,9 @@ from .permission import IsSeller, IsOwnerShop, IsBuyer, IsAdmin
 from .serializers import (CategorySerializer, ProductSerializer, CommentSerializer, UserSerializer,FavouriteSerializer,
                           ProductDetailSerializer,ShopSerializer, PaymentSerializer, OrderSerializer, OrderDetailSerializer,
                           LikeSerializer, CartSerializer, CartItemSerializer, CategoryDetailSerializer,
-                          ProductComparisonSerializer, RevenueStatisticsSerializer,)
-from . import paginator
+                          ProductComparisonSerializer, ProductNameQuerySerializer, CategoryQuerySerializer,
+                          RevenueStatisticsSerializer, AdminRevenueStatisticsSerializer)
+from . import serializers, paginator
 from . import permission
 from datetime import timezone
 import calendar
@@ -889,85 +896,59 @@ class OrderDetailViewSet(viewsets.ViewSet):
         serializer = OrderDetailSerializer(details, many=True)
         return Response(serializer.data)
 
-    @action(methods=['post'], detail=True, url_path="rating")
-    def post_rating(self, request, pk):
-        try:
-            orderDetail = OrderDetail.objects.get(pk=pk)
-        except OrderDetail.DoesNotExist:
-            return Response({"Chi tiết": "Không tìm thấy đơn hàng này!"}, status=status.HTTP_404_NOT_FOUND)
-
-        order = Order.objects.get(pk=orderDetail.order_id)
-        permission.IsOwnerOrder().has_object_permission(request, self, order)
-
-        product = Product.objects.get(pk=orderDetail.product_id)
-
-        star = request.data.get('star')
-        if not star:
-            return Response({'Lỗi': 'Thiếu dữ liệu đánh giá (star)'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Kiểm tra xem star có hợp lệ không
-        try:
-            star = int(star)
-            if star < 1 or star > 5:
-                return Response(
-                    {'error': 'Số sao phải từ 1 đến 5.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        except (TypeError, ValueError):
-            return Response(
-                {'error': 'Số sao phải là số nguyên.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Kiểm tra đánh giá đã tồn tại chưa
-        rating, created = Like.objects.get_or_create(
-            user=request.user,
-            product=product,
-            defaults={'star': star}
-        )
-
-        if not created:
-            # Nếu đã tồn tại thì cập nhật số sao
-            rating.star = star
-            rating.save()
-            return Response(LikeSerializer(rating).data, status=status.HTTP_200_OK)
-
-        return Response(LikeSerializer(rating).data, status=status.HTTP_201_CREATED)
-
-
-
-
-class ProductComparisonViewSet(viewsets.ViewSet):
+class ProductComparisonViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     """
     ViewSet for comparing products across different stores
     """
+    pagination_class = PageNumberPagination
+    permission_classes = [IsAuthenticated]
+
+    def _get_response_data(self, products, extra_data):
+        # Nếu products là QuerySet, sử dụng distinct và count
+        if isinstance(products, QuerySet):
+            shops_count = products.distinct('shop').count()
+            total_products = products.count()
+        else:
+            # Nếu products là list (từ pagination), tính shops_count và total_products thủ công
+            shops_count = len({product.shop.id for product in products})
+            total_products = len(products)
+
+        serializer = ProductComparisonSerializer(products, many=True, context={'request': self.request})
+        return {
+            **extra_data,
+            "products": serializer.data,
+            "total_products": total_products,
+            "shops_count": shops_count
+        }
 
     def list(self, request):
         """
         Get all products for comparison
         """
         products = Product.objects.select_related('shop', 'category').order_by('shop__name', 'name')
-        serializer = ProductComparisonSerializer(products, many=True)
-        return Response(serializer.data)
+        page = self.paginate_queryset(products)
+        if page is not None:
+            return self.get_paginated_response(
+                self._get_response_data(page, {})
+            )
+        return Response(self._get_response_data(products, {}))
+
 
     @action(detail=False, methods=['get'], url_path='category/(?P<category_id>[^/.]+)')
-    def compare_by_category(self, request, category_id=None):
+    def by_category(self, request, category_id=None):
         """
         Compare products of the same category across different stores
         """
+        query_serializer = CategoryQuerySerializer(data={'category_id': category_id})
+        if not query_serializer.is_valid():
+            return Response(query_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             category = Category.objects.get(id=category_id)
         except Category.DoesNotExist:
-            return Response(
-                {"error": "Không tìm thấy loại sản phẩm"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Không tìm thấy loại sản phẩm"}, status=status.HTTP_404_NOT_FOUND)
 
-        # Get products from different shops for the same category
-        products = Product.objects.filter(
-            category_id=category_id
-        ).select_related('shop', 'category').order_by('shop__name', 'name')
-
+        products = Product.objects.filter(category_id=category_id).select_related('shop', 'category')
         if not products.exists():
             return Response({
                 "category_name": category.name,
@@ -977,100 +958,73 @@ class ProductComparisonViewSet(viewsets.ViewSet):
                 "shops_count": 0
             })
 
-        # Count unique shops manually
-        unique_shops = set()
-        for product in products:
-            unique_shops.add(product.shop.id)
-        shops_count = len(unique_shops)
+        min_price = request.query_params.get('min_price')
+        if min_price:
+            products = products.filter(price__gte=min_price)
+        sort_by = request.query_params.get('sort_by', 'shop__name,name')
+        products = products.order_by(*sort_by.split(','))
 
-        serializer = ProductComparisonSerializer(products, many=True)
+        page = self.paginate_queryset(products)
+        if page is not None:
+            return self.get_paginated_response(
+                self._get_response_data(page, {"category_name": category.name, "category_id": category.id})
+            )
+        return Response(self._get_response_data(products, {"category_name": category.name, "category_id": category.id}))
 
-        response_data = {
-            "category_name": category.name,
-            "category_id": category.id,
-            "products": serializer.data,
-            "total_products": products.count(),
-            "shops_count": shops_count
-        }
-
-        return Response(response_data)
-
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='by-name')
     def compare_by_name(self, request):
         """
         Compare products with similar names across different stores
         """
-        product_name = request.query_params.get('name', '')
+        query_serializer = ProductNameQuerySerializer(data=request.query_params)
+        if not query_serializer.is_valid():
+            return Response(query_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        product_name = query_serializer.validated_data['name']
 
         if not product_name:
-            return Response(
-                {"error": "Product name parameter is required"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Search for products with similar names across different shops
-        products = Product.objects.filter(
-            name__icontains=product_name
-        ).select_related('shop', 'category').order_by('shop__name', 'name')
-
-        if not products.exists():
             return Response({
-                "search_term": product_name,
+                "search_term": "",
                 "products": [],
                 "total_products": 0,
                 "shops_count": 0
             })
 
-        # Count unique shops manually
-        unique_shops = set()
-        for product in products:
-            unique_shops.add(product.shop.id)
-        shops_count = len(unique_shops)
+        products = Product.objects.filter(name__icontains=product_name).select_related('shop', 'category')
+        sort_by = request.query_params.get('sort_by', 'shop__name,name')
+        products = products.order_by(*sort_by.split(','))
 
-        serializer = ProductComparisonSerializer(products, many=True)
+        page = self.paginate_queryset(products)
+        if page is not None:
+            return self.get_paginated_response(
+                self._get_response_data(page, {"search_term": product_name})
+            )
+        return Response(self._get_response_data(products, {"search_term": product_name}))
 
-        return Response({
-            "search_term": product_name,
-            "products": serializer.data,
-            "total_products": products.count(),
-            "shops_count": shops_count
-        })
-
-    @action(detail=False, methods=['get'])
-    def categories_with_multiple_shops(self, request):
+    @action(detail=False, methods=['get'], url_path='multi-shop-categories')
+    def multi_shop_categories(self, request):
         """
         Get categories that have products from multiple shops (useful for comparison)
         """
-        categories = Category.objects.all()
+        categories = Category.objects.annotate(
+            shops_count=Count('products__shop', distinct=True),
+            products_count=Count('products')
+        ).filter(shops_count__gt=1).order_by('-shops_count')
 
-        category_data = []
-        for category in categories:
-            # Get products for this category
-            products = Product.objects.filter(category=category)
-
-            # Count unique shops manually
-            unique_shops = set()
-            for product in products:
-                unique_shops.add(product.shop.id)
-
-            # Only include categories with products from multiple shops
-            if len(unique_shops) > 1:
-                category_data.append({
-                    'id': category.id,
-                    'name': category.name,
-                    'description': category.description,
-                    'shops_count': len(unique_shops),
-                    'products_count': products.count()
-                })
-
-        # Sort by shops_count descending
-        category_data.sort(key=lambda x: x['shops_count'], reverse=True)
+        category_data = [
+            {
+                'id': category.id,
+                'name': category.name,
+                'description': category.description,
+                'shops_count': category.shops_count,
+                'products_count': category.products_count
+            } for category in categories
+        ]
 
         return Response({
             'categories': category_data,
             'total_categories': len(category_data)
         })
-
 
 class RevenueStatisticsViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
@@ -1090,8 +1044,8 @@ class RevenueStatisticsViewSet(viewsets.ViewSet):
         # Base queryset for completed payments with successful orders
         base_payments = Payment.objects.filter(
             order__order_details__product__shop=shop,
-            status=1
-        ).distinct()
+            status='1'
+        ).select_related('order').distinct()
 
         # Apply date filters
         if year:
@@ -1108,6 +1062,11 @@ class RevenueStatisticsViewSet(viewsets.ViewSet):
             try:
                 start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
                 end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+                if start_date > end_date:
+                    return Response(
+                        {'error': 'start_date phải nhỏ hơn hoặc bằng end_date'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
                 base_payments = base_payments.filter(
                     created_date__date__range=[start_date, end_date]
                 )
@@ -1131,12 +1090,15 @@ class RevenueStatisticsViewSet(viewsets.ViewSet):
             )
 
         # Calculate totals manually
+        totals = base_payments.aggregate(
+            total_revenue=Sum('amount'),
+            total_orders=Count('id')
+        )
+
         total_revenue = Decimal('0.00')
         total_orders = 0
-
-        # Get all payments for this shop
         for payment in base_payments:
-            total_revenue += payment.amount
+            total_revenue += payment.order.total_price
             total_orders += 1
 
         # Prepare response data
@@ -1156,15 +1118,12 @@ class RevenueStatisticsViewSet(viewsets.ViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def get_monthly_stats(self, payments):
-        # Get all payments for completed orders
         monthly_stats = {}
-
         for payment in payments.order_by('created_date'):
             created_date = payment.created_date
             year = created_date.year
             month = created_date.month
             month_key = f"{year}-{month:02d}"
-
             if month_key not in monthly_stats:
                 monthly_stats[month_key] = {
                     'period': month_key,
@@ -1175,27 +1134,20 @@ class RevenueStatisticsViewSet(viewsets.ViewSet):
                     'total_orders': 0,
                     'avg_order_value': Decimal('0.00')
                 }
-
-            monthly_stats[month_key]['total_revenue'] += payment.amount
+            monthly_stats[month_key]['total_revenue'] += payment.order.total_price
             monthly_stats[month_key]['total_orders'] += 1
-
-        # Calculate average order values
         for stats in monthly_stats.values():
             if stats['total_orders'] > 0:
                 stats['avg_order_value'] = stats['total_revenue'] / stats['total_orders']
-
         return list(monthly_stats.values())
 
     def get_quarterly_stats(self, payments):
-        # Get all payments for completed orders
         quarterly_stats = {}
-
         for payment in payments.order_by('created_date'):
             created_date = payment.created_date
             year = created_date.year
             quarter = (created_date.month - 1) // 3 + 1
             quarter_key = f"{year}-Q{quarter}"
-
             if quarter_key not in quarterly_stats:
                 quarterly_stats[quarter_key] = {
                     'period': f"Q{quarter} {year}",
@@ -1205,26 +1157,19 @@ class RevenueStatisticsViewSet(viewsets.ViewSet):
                     'total_orders': 0,
                     'avg_order_value': Decimal('0.00')
                 }
-
-            quarterly_stats[quarter_key]['total_revenue'] += payment.amount
+            quarterly_stats[quarter_key]['total_revenue'] += payment.order.total_price
             quarterly_stats[quarter_key]['total_orders'] += 1
-
-        # Calculate average order values
         for stats in quarterly_stats.values():
             if stats['total_orders'] > 0:
                 stats['avg_order_value'] = stats['total_revenue'] / stats['total_orders']
-
         return list(quarterly_stats.values())
 
     def get_yearly_stats(self, payments):
-        # Get all payments for completed orders
         yearly_stats = {}
-
         for payment in payments.order_by('created_date'):
             created_date = payment.created_date
             year = created_date.year
             year_key = str(year)
-
             if year_key not in yearly_stats:
                 yearly_stats[year_key] = {
                     'period': year_key,
@@ -1233,15 +1178,11 @@ class RevenueStatisticsViewSet(viewsets.ViewSet):
                     'total_orders': 0,
                     'avg_order_value': Decimal('0.00')
                 }
-
-            yearly_stats[year_key]['total_revenue'] += payment.amount
+            yearly_stats[year_key]['total_revenue'] += payment.order.total_price
             yearly_stats[year_key]['total_orders'] += 1
-
-        # Calculate average order values
         for stats in yearly_stats.values():
             if stats['total_orders'] > 0:
                 stats['avg_order_value'] = stats['total_revenue'] / stats['total_orders']
-
         return list(yearly_stats.values())
 
 
@@ -1249,13 +1190,16 @@ class RevenueStatisticsViewSet(viewsets.ViewSet):
 
 class AdminRevenueViewSet(viewsets.ViewSet):
     permission_classes = [IsAdmin]
+    serializer_class = AdminRevenueStatisticsSerializer
 
     @action(detail=False, methods=['get'], url_path='statistics/(?P<period_type>month|quarter|year)')
     def get_admin_statistics(self, request, period_type=None):
-        # Validate and parse dates
+        # Lấy thống kê doanh thu cho admin theo period_type (month, quarter, year).
+        if period_type not in ['month', 'quarter', 'year']:
+            raise ValidationError({"detail": "Giai đoạn không hợp lệ. Chọn: month, quarter, year"})
+
         start_date_str = request.query_params.get("start_date")
         end_date_str = request.query_params.get("end_date")
-
         if not start_date_str or not end_date_str:
             raise ValidationError({"detail": "Cần cung cấp start_date và end_date (YYYY-MM-DD)"})
 
@@ -1268,31 +1212,46 @@ class AdminRevenueViewSet(viewsets.ViewSet):
         if start_date > end_date:
             raise ValidationError({"detail": "start_date phải nhỏ hơn hoặc bằng end_date"})
 
-        # Lọc Payment
-        payments = Payment.objects.filter(status=1, created_date__date__range=(start_date, end_date)).select_related('order')
+        payments = Payment.objects.filter(
+            status='1',
+            created_date__date__range=(start_date, end_date)
+        ).select_related('order').prefetch_related('order__order_details')
 
-        # Gom nhóm thống kê
+        if not payments.exists():
+            return Response({
+                "message": "Không có dữ liệu thanh toán trong khoảng thời gian này",
+                "period_type": period_type,
+                "statistics": [],
+                "summary": {
+                    "total_revenue": "0.00",
+                    "total_orders": 0,
+                    "total_products_sold": 0
+                }
+            }, status=status.HTTP_200_OK)
+
         stats = self.get_grouped_stats(payments, period_type)
 
-        # Tổng hợp
         total = payments.aggregate(
-            total_revenue=Sum('amount'),
+            total_revenue=Sum('order__total_price'),
             total_orders=Count('id')
         )
 
         total_products = OrderDetail.objects.filter(
-            order__in=[p.order_id for p in payments]
+            order__in=payments.values('order')
         ).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
 
-        return Response({
-            "period_type": period_type,
-            "statistics": stats,
-            "summary": {
-                "total_revenue": str(total['total_revenue'] or Decimal('0.00')),
-                "total_orders": total['total_orders'] or 0,
-                "total_products_sold": total_products
-            }
-        }, status=status.HTTP_200_OK)
+        response_data = {
+            "period": period_type,
+            "total_revenue": total['total_revenue'] or Decimal('0.00'),
+            "total_orders": total['total_orders'] or 0,
+            "total_products_sold": total_products,
+            "stats": stats
+        }
+
+        serializer = self.serializer_class(data=response_data)
+        if serializer.is_valid():
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def get_grouped_stats(self, payments, period_type):
         grouped = defaultdict(lambda: {"revenue": Decimal('0.00'), "orders": 0, "products_sold": 0})
@@ -1301,14 +1260,11 @@ class AdminRevenueViewSet(viewsets.ViewSet):
             dt = payment.created_date
             key = self.get_period_key(dt, period_type)
 
-            grouped[key]["revenue"] += payment.amount
+            grouped[key]["revenue"] += payment.order.total_price
             grouped[key]["orders"] += 1
-
-            # Tính tổng sản phẩm của từng order
-            quantity = OrderDetail.objects.filter(order=payment.order).aggregate(qty=Sum('quantity'))['qty'] or 0
+            quantity = sum(detail.quantity for detail in payment.order.order_details.all())
             grouped[key]["products_sold"] += quantity
 
-        # Format output
         return [
             {
                 "period": key,

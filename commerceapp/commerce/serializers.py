@@ -226,7 +226,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Payment
-        fields = ['id', 'order', 'status',
+        fields = ['id', 'order', 'amount', 'status',
                   'transaction_id', 'created_date', 'updated_date', 'order_details']
         read_only_fields = ['id', 'transaction_id', 'status', 'created_date', 'updated_date', 'order_details']
 
@@ -326,19 +326,49 @@ class OrderDetailSerializer(ModelSerializer):
 
 
 class ProductComparisonSerializer(serializers.ModelSerializer):
-    shop = ShopSerializer(read_only=True)
-    category = CategorySerializer(read_only=True)
+    shop = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ['id', 'name', 'description', 'category', 'shop']
 
+    def get_shop(self, obj):
+        return {'id': obj.shop.id, 'name': obj.shop.name}
+
+    def get_category(self, obj):
+        return {'id': obj.category.id, 'name': obj.category.name}
+
+    def to_representation(self, instance):
+        """
+        Customize output representation, e.g., allow dynamic fields via query params.
+        """
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        if request and 'fields' in request.query_params:
+            fields = request.query_params['fields'].split(',')
+            return {field: representation[field] for field in fields if field in representation}
+        return representation
+
+    def validate(self, attrs):
+        """
+        Custom validation for serializer.
+        """
+        if not attrs.get('name'):
+            raise serializers.ValidationError("Product name is required.")
+        return attrs
+
+class ProductNameQuerySerializer(serializers.Serializer):
+    name = serializers.CharField(min_length=2, max_length=100)
+
+class CategoryQuerySerializer(serializers.Serializer):
+    category_id = serializers.IntegerField()
 
 class RevenueStatisticsSerializer(serializers.Serializer):
     shop_id = serializers.IntegerField()
     shop_name = serializers.CharField()
-    period_type = serializers.CharField()
-    statistics = serializers.ListField()
+    period_type = serializers.ChoiceField(choices=['month', 'quarter', 'year'])
+    statistics = serializers.ListField(child=serializers.DictField())
     total_revenue_all_periods = serializers.DecimalField(max_digits=15, decimal_places=2)
     total_orders_all_periods = serializers.IntegerField()
 
@@ -348,10 +378,9 @@ class AdminRevenueStatisticsSerializer(serializers.Serializer):
     total_revenue = serializers.DecimalField(max_digits=12, decimal_places=2)
     total_orders = serializers.IntegerField()
     total_products_sold = serializers.IntegerField()
-
     stats = serializers.ListField(
         child=serializers.DictField(
-            child=serializers.Field()
+            child=serializers.CharField()
         )
     )
 

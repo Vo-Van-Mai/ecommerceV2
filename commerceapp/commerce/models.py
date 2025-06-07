@@ -140,32 +140,39 @@ class OrderDetail(BaseModel):
     class Meta:
         ordering = ['-created_date']
 
+
+
 class Payment(BaseModel):
+    PAYMENT_METHOD_CASH = 0
+    PAYMENT_METHOD_MOMO = 1
     payment_method_choices = [
-        (0, 'Cash On Delivery'),
-        (1, 'MoMo')
+        (PAYMENT_METHOD_CASH, 'Cash On Delivery'),
+        (PAYMENT_METHOD_MOMO, 'MoMo')
     ]
 
+    STATUS_PENDING = 0
+    STATUS_COMPLETED = 1
+    STATUS_FAILED = 2
     payment_status_choices = [
-        (0, 'Pending'),
-        (1, 'Completed'),
-        (2, 'Failed')
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_COMPLETED, 'Completed'),
+        (STATUS_FAILED, 'Failed')
     ]
 
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='payments')
     amount = models.DecimalField(max_digits=10, decimal_places=0, null=True, blank=True)
-    status = models.CharField(max_length=20, choices=payment_status_choices, default=0)
+    payment_method = models.IntegerField(choices=payment_method_choices, default=PAYMENT_METHOD_CASH)
+    status = models.IntegerField(choices=payment_status_choices, default=STATUS_PENDING)
     transaction_id = models.CharField(max_length=255, blank=True, null=True)
     request_id = models.CharField(max_length=100, blank=True, null=True)
-    created_date = models.DateTimeField(default=timezone.now())
+    created_date = models.DateTimeField(default=timezone.now)
 
     class Meta:
         verbose_name = _('Payment')
         verbose_name_plural = _('Payments')
 
     def __str__(self):
-        return f"{self.method} payment for order {self.order.id}"
-
+        return f"{self.get_payment_method_display()} payment for order {self.order.id}"
 
 
 

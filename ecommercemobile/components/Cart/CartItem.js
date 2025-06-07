@@ -16,7 +16,8 @@ const CartItem = ({ item, onSelect, onQuantityChange }) => {
     const setCart = useContext(MySetCartContext);
     const [deletingItemId, setDeletingItemId] = useState(null);
     const user = useContext(MyUserContext)
-
+    console.log("user", user)
+    console.log("item", item)
 
     const increaseQuantity = () => {
         const newQuantity = handleIncreaseQuantity(quantity);
@@ -90,9 +91,9 @@ const CartItem = ({ item, onSelect, onQuantityChange }) => {
 
             <View style={{ flex: 9, flexDirection: "row", justifyContent: "space-between" }}>
                 <View style={{ flexDirection: "column", alignItems: "center", flex: 4, justifyContent: "center" }}>
-                {item.product?.images?.[0]?.pathImg && (
+                {item?.product?.image&& (
                         <Image
-                            source={{ uri: item.product.images[0].pathImg }}
+                            source={{ uri: item.product.image}}
                             style={Styles.image}
                         />
                         )}

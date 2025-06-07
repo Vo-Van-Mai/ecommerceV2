@@ -15,6 +15,7 @@ const ShopManagement = () => {
       icon: 'box',
       color: '#4CAF50',
       screen: 'ShopProduct',
+      params: { shopId: shop?.shop?.id },
       description: 'Quản lý danh sách sản phẩm'
     },
     {
@@ -39,6 +40,7 @@ const ShopManagement = () => {
       icon: 'chart-bar',
       color: '#9C27B0',
       screen: 'Statistics',
+      params: { shopId: shop?.shop?.id },
       description: 'Thống kê doanh thu'
     },
     {

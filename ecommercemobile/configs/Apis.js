@@ -42,10 +42,19 @@ export const endpoints  = {
     'orderVerify': (orderId) => `/orders/${orderId}/confirm/`,
     'orderVrifyShipping': (orderId) => `/orders/${orderId}/confirm-shipping/`,
     'confirmReceived': (orderId) => `/orders/${orderId}/confirm-received/`,
+    'cancelOrder': (orderId) => `/orders/${orderId}/cancel/`,
 
     //staff
     "createStaff": "/users/register-staff/",
 
+    //payment
+    'momo_payment': '/payments/momo_payment/',
+    'paymentDetail': (paymentId) => `/payments/${paymentId}/`,
+    'momo_return': '/payments/momo_return/',
+    'payment-cash': (orderId) => `/payments/${orderId}/payment-cash/`,
+
+    //statistics
+    'revenue-stats': (shopId, periodType) => `/seller-statistics/${shopId}/revenue-stats/${periodType}/`,
 };
 
 export const authAPI = (accessToken) => {

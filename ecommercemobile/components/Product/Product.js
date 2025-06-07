@@ -313,12 +313,12 @@ const Product = ({ route }) => {
             />
 
             {/* Bottom Bar với nút Thêm vào giỏ và Mua ngay */}
-            <View style={styles.bottomBar}>
+            {user?.role==="buyer" && <View style={styles.bottomBar}>
                 <TouchableOpacity style={styles.cartButton} onPress={addToCart}>
                     <Icon name="shopping-cart" size={20} color="#333" />
                     <Text style={styles.cartButtonText}>Thêm vào giỏ</Text>
                 </TouchableOpacity>
-            </View>
+            </View>}
         </View>
     );
 };

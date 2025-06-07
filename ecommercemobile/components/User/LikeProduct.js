@@ -62,11 +62,7 @@ const LikeProduct = () => {
             setPage(page + 1);
     }
 
-    // const refresh = () => {
-    //     setProducts([]);
-    //     setPage(1);
-    //     loadProduct();
-    // };
+    
     
     useEffect(()=>{
         loadProduct();
@@ -77,6 +73,8 @@ const LikeProduct = () => {
         if (page > 1)
             loadProduct();
     }, [page]);
+
+    
 
 
 

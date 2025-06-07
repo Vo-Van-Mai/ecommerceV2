@@ -76,32 +76,51 @@ const OrderItem = ({status}) => {
     const cancelOrder = async(orderId) => {
         try {
             setLoadDetail(true);
-            let resCancelOrder = await authAPI(user.token).patch(endpoints["orderCancel"](orderId));
-            console.log("response thông tin đơn hàng:", resCancelOrder.data);
-            if(resCancelOrder.status === 200){
-                setOrders({type: "cancel_order", payload: resCancelOrder.data});
+            console.log("Gọi API hủy đơn hàng với orderId:", orderId);
+            
+            const res = await authAPI(user.token).patch(
+                endpoints['cancelOrder'](orderId)  // Sửa lại tên endpoint thành 'cancelOrder'
+            );
+            
+            console.log("Response hủy đơn hàng:", res.data);
+            
+            if(res.status === 200){
+                setOrders({
+                    type: "cancel_order", 
+                    payload: res.data
+                });
                 Alert.alert("Thành công", "Đơn hàng đã được hủy thành công");
+                // Tải lại danh sách đơn hàng
+                loadOrders(1);
             }
         } catch (error) {
-            console.log("error:", error);
-        }finally{
+            console.error("Lỗi hủy đơn hàng:", error);
+            console.error("Response error:", error.response?.data);
+            Alert.alert(
+                "Lỗi",
+                error.response?.data?.message || "Không thể hủy đơn hàng"
+            );
+        } finally {
             setLoadDetail(false);
         }
-    }
-
+    };
+    
     const handleRemoveOrder = async(orderId) => {
-        try {
-            Alert.alert("Xác nhận", "Bạn có muốn hủy đơn hàng này không?", [
-                {text: "Hủy", style: "cancel"},
-                {text: "Xác nhận", onPress: () => {
-                    cancelOrder(orderId);
-                    
-                }}
-            ])
-        }catch(error){
-            console.log("error:", error);
-        }
-    }
+        Alert.alert(
+            "Xác nhận hủy đơn",
+            "Bạn có chắc chắn muốn hủy đơn hàng này không?",
+            [
+                {
+                    text: "Không",
+                    style: "cancel"
+                },
+                {
+                    text: "Có",
+                    onPress: () => cancelOrder(orderId)
+                }
+            ]
+        );
+    };
 
     const handleVerifyOrder = async(orderId, status) => {
         try {

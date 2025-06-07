@@ -181,7 +181,7 @@ class UserSerializer(ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'first_name', 'last_name', 'email', 'username', 'password', 'gender', 'phone', 'avatar', 'role',
-                  'created_date', 'updated_date', 'is_verified_seller']
+                  'created_date', 'updated_date', 'is_verified_seller', 'is_staff']
         read_only_fields = ['id', 'is_verified_user']
         extra_kwargs = {
             'password': {

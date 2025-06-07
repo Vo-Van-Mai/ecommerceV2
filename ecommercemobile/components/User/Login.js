@@ -1,5 +1,5 @@
 import React, { useContext, useState } from 'react';
-import { SafeAreaView, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView, View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView } from 'react-native';
 import { Button } from 'react-native-paper';
 import { Ionicons, AntDesign, FontAwesome } from '@expo/vector-icons';
 import Styles from './Styles';
@@ -113,7 +113,8 @@ const Login = () => {
     };
 
   return (
-    <SafeAreaView style={Styles.container}>
+    <KeyboardAvoidingView behavior="padding" style={Styles.container}>
+      <SafeAreaView style={Styles.container}>
       <Text style={Styles.header}>Đăng nhập</Text>
       
       {/* usernname Input */}
@@ -175,6 +176,7 @@ const Login = () => {
         <SocialButton icon={<FontAwesome name="facebook" size={20} color="blue" />} text="Tiếp tục với Facebook" />
       </View>
     </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 };
 

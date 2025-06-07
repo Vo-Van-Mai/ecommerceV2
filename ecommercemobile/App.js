@@ -37,6 +37,10 @@ import CreateStaffForm from "./components/Staff/CreateStaffForm";
 import Shop from "./components/Shop/Shop";
 import LikeProduct from "./components/User/LikeProduct";
 import RatingOrder from "./components/Order/RatingOrder";
+import PaymentWebView from "./components/Payment/PaymentWebView";
+import PaymentSuccess from "./components/Payment/PaymentSuccess";
+import PaymentFailed from "./components/Payment/PaymentFailed";
+import Statistics from "./components/Statistics/Statistics";
 const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 const ShopStack = createNativeStackNavigator();
@@ -59,9 +63,29 @@ const StackNavigator = () => {
       <Stack.Screen name="Home" component={Home} />
       <Stack.Screen name="Product" component={Product} options={{headerShown: true}}/>
       <Stack.Screen name="Shop" component={Shop} options={{headerShown: true}}/>
+      <Stack.Screen 
+          name="PaymentWebview" 
+          component={PaymentWebView} 
+          options={{
+              headerShown: true,
+              title: 'Thanh toán MoMo'
+          }}
+      />
+      <Stack.Screen 
+          name="PaymentSuccess" 
+          component={PaymentSuccess} 
+          options={{headerShown: true}}
+      />
+      <Stack.Screen 
+          name="PaymentFailed" 
+          component={PaymentFailed} 
+          options={{headerShown: true}}
+      />
     </Stack.Navigator>
   );
 };
+
+
 
 const AuthStackNavigator = () => {
   return (
@@ -78,6 +102,8 @@ const ShopStackNavigator = () => {
       <ShopStack.Screen name="ShopManagement" component={ShopManagement} />
       <ShopStack.Screen name="ShopProduct" component={ShopProduct} />
       <ShopStack.Screen name="AddProduct" component={AddProduct} />
+      <ShopStack.Screen name="Product" component={Product} />
+      <ShopStack.Screen name="Statistics" component={Statistics} options={{headerShown: true}} />
     </ShopStack.Navigator>
   );
 };
